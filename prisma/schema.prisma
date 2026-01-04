@@ -1,0 +1,125 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// 1. Define the Data Source (PostgreSQL)
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["prismaSchemaFolder"] // Good for keeping schema clean
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ... Keep your User model here ...
+
+// 2. The User Model for Authentication
+model User {
+  id             String   @id @default(cuid())
+  password_hash  String
+  role           Role     @default(VOTER)
+
+  // Identity Anchors
+  epic_number    String?  @unique
+  aadhaar_uid    String?  @unique
+  gov_id         String?  @unique
+
+  // Profile Snapshot
+  firstName      String?
+  lastName       String?
+  constituency   String?
+  isVerified     Boolean  @default(false)
+
+  // State Metadata (From Diagram)
+  version        Int      @default(1)    // Incremented on every approved update
+  status         String   @default("ACTIVE") // ACTIVE, PENDING_RELOCATION, LOCKED
+  encrypted_key  String?                 // Key Store for subject data
+
+  // Timestamps
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  // Relations
+  relocationRequests RelocationRequest[]
+  auditLogs          AuditLog[]
+
+  @@map("users") // Maps to your existing 'users' table
+}
+
+enum Role {
+  VOTER
+  OFFICER
+  ADMIN
+}
+
+model RelocationRequest {
+  id             String        @id @default(cuid())
+  voterId        String
+  voter          User          @relation(fields: [voterId], references: [id])
+  
+  fromZone       String
+  toZone         String
+  status         RequestStatus @default(PENDING)
+  
+  officerId      String?       // Polling Officer who approves/rejects
+  
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("relocation_requests")
+}
+
+enum RequestStatus {
+  PENDING
+  PROCESSING  
+  APPROVED
+  REJECTED
+}
+
+
+model AuditLog {
+  id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id])
+
+  // Encrypted Payload (From Diagram)
+  encrypted_payload String @db.Text     // Stores the JSONB delta of the change
+  iv                String   // Initialization Vector for encryption
+  signature         String   // RSA/ECDSA Signature for non-repudiation
+
+  // Cryptographic Linkage (From Diagram)
+  prev_hash         String   // SHA-256 Hash of the previous block
+  curr_hash         String   @unique // SHA-256 Hash of this current block
+
+  eventType         String   // e.g., "RELOCATION", "IDENTITY_UPDATE"
+  timestamp         DateTime @default(now())
+
+  @@map("immutable_ledger")
+}
+
+model EncryptionKey {
+  voter_id      String   @id
+  encrypted_key String   // The AES-256 key, encrypted by Master System Key
+  created_at    DateTime @default(now())
+  
+  @@map("encryption_keys")
+}
+
+model ConflictLog {
+  id              String   @id @default(uuid())
+  epic_number     String
+  original_payload Json    // Stores the full RabbitMQ message
+  conflict_reason String   // "VERSION_MISMATCH", "PROCESSING_ERROR"
+  error_message   String?
+  expected_version Int?
+  actual_version   Int?
+  status          String   @default("PENDING") // Options: PENDING, RESOLVED_DISCARDED, RESOLVED_RETRIED
+  createdAt       DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@index([status])
+}
