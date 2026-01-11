@@ -44,6 +44,11 @@ export async function saveVoterLocally(voterData) {
     status: "OFFLINE_PENDING",
     version: 2.1,
     timestamp: new Date().toISOString(),
+    // Network quality metadata (optional)
+    savedReason: voterData.savedReason || "OFFLINE", // "OFFLINE" | "HIGH_LATENCY"
+    savedLatency: voterData.savedLatency || null, // Latency in ms when saved
+    lastSyncLatency: null, // Will be set when synced
+    lastSyncQuality: null, // "good" | "poor" - will be set when synced
   };
 
   try {
@@ -73,8 +78,10 @@ export async function getLocalEnrollments() {
 /**
  * Marks a document as synced in PouchDB
  * @param {string} docId - Document ID to mark as synced
+ * @param {number} [syncLatency] - Optional latency at time of sync
+ * @param {string} [syncQuality] - Optional quality indicator ("good" | "poor")
  */
-export async function markAsSynced(docId) {
+export async function markAsSynced(docId, syncLatency = null, syncQuality = null) {
   const db = await getDB();
   if (!db) return { success: false, error: "Database not available" };
 
@@ -82,6 +89,9 @@ export async function markAsSynced(docId) {
     const doc = await db.get(docId);
     doc.status = "SYNCED";
     doc.synced_at = new Date().toISOString();
+    // Record sync network quality metadata
+    if (syncLatency !== null) doc.lastSyncLatency = syncLatency;
+    if (syncQuality !== null) doc.lastSyncQuality = syncQuality;
     await db.put(doc);
     return { success: true };
   } catch (err) {
@@ -115,6 +125,7 @@ export async function removeSyncedDocuments() {
     return { success: false, error: err.message };
   }
 }
+
 
 export async function clearLocalDB() {
   const db = await getDB();

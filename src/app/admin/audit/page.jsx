@@ -38,35 +38,34 @@ export default function AdminLedger() {
     }
   };
 
-  
   const handleVerifyChain = async () => {
     setVerifying(true);
     setVerificationResult(null);
-    
+
     try {
       const result = await verifyLedgerChainAction();
-      
+
       if (result.success && result.result) {
         setVerificationResult(result.result);
         setChainIntegrity(
-          result.result.valid 
-            ? `${result.result.verifiedCount}/${result.result.totalEntries} Verified` 
+          result.result.valid
+            ? `${result.result.verifiedCount}/${result.result.totalEntries} Verified`
             : `${result.result.errors.length} Errors Found`
         );
-        
+
         // Refresh ledger data after verification
         await fetchLedgerData();
       } else {
         setVerificationResult({
           valid: false,
-          message: result.error || "Verification failed"
+          message: result.error || "Verification failed",
         });
       }
     } catch (error) {
       console.error("Verification error:", error);
       setVerificationResult({
         valid: false,
-        message: "Verification failed: " + error.message
+        message: "Verification failed: " + error.message,
       });
     } finally {
       setVerifying(false);
@@ -74,14 +73,12 @@ export default function AdminLedger() {
   };
 
   // Global Admin Navigation Styling
-  const navLinkStyle = (path) => `
-    text-xs font-black px-4 py-2 transition-all uppercase tracking-[0.2em] border
-    ${
+  const navLinkStyle = (path) =>
+    `px-4 py-2 text-sm font-semibold transition-all rounded ${
       pathname === path
-        ? "bg-white text-black border-white"
-        : "border-white/20 text-white/50 hover:border-white/60 hover:text-white"
-    }
-  `;
+        ? "bg-[#000080] text-white"
+        : "text-gray-700 hover:bg-gray-100"
+    }`;
 
   // Format hash for display (truncate)
   const formatHash = (hash) => {
@@ -106,133 +103,310 @@ export default function AdminLedger() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white font-mono selection:bg-white selection:text-black overflow-x-hidden">
-      {/* BACKGROUND GRID OVERLAY */}
-      <div
-        className="fixed inset-0 z-0 pointer-events-none opacity-[0.05]"
-        style={{
-          backgroundImage: `linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }}
-      ></div>
-
-      {/* GLOBAL ADMIN NAVIGATION */}
-      <nav className="relative z-50 p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-center backdrop-blur-md bg-black/50 gap-6">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter">
-              Admin_Audit <span className="text-red-500/50">#ROOT</span>
-            </h1>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-white/50 mt-1">
-              Ledger: Dual_State_Active
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Government Header Bar */}
+      <div className="bg-[#000080] text-white py-2">
+        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-xs">
+          <div className="flex items-center gap-6">
+            <span>Screen Reader Access</span>
+            <span>Skip to Main Content</span>
           </div>
-
-          <div className="flex gap-3 ml-6 border-l border-white/20 pl-6">
-            <Link href="/admin/audit" className={navLinkStyle("/admin/audit")}>
-              Ledger
-            </Link>
-            <Link
-              href="/admin/conflicts"
-              className={navLinkStyle("/admin/conflicts")}
-            >
-              Conflicts
-            </Link>
-            <Link
-              href="/admin/privacy"
-              className={navLinkStyle("/admin/privacy")}
-            >
-              Privacy
-            </Link>
+          <div className="flex items-center gap-4">
+            <button className="hover:underline">English</button>
+            <span>|</span>
+            <button className="hover:underline">हिन्दी</button>
           </div>
         </div>
+      </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2 px-3 py-1.5 border border-emerald-500/40 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-widest rounded-full">
-            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
-            Ledger Active
+      {/* Main Header */}
+      <header className="bg-white border-b-4 border-[#FF9933] shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-[#000080] rounded-full flex items-center justify-center text-white font-bold">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-10 h-10"
+                  >
+                    <circle cx="12" cy="12" r="10" fill="#FF9933" />
+                    <circle cx="12" cy="12" r="7" fill="#FFFFFF" />
+                    <circle cx="12" cy="12" r="4" fill="#138808" />
+                    <circle cx="12" cy="12" r="1" fill="#000080" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[#000080]">
+                    V-LINK 2.1
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Administrator Portal
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Election Commission of India
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="flex items-center gap-2 text-sm mb-1">
+                <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                <span className="text-green-600 font-semibold">
+                  System Active
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">
+                Last Updated: {new Date().toLocaleDateString()}
+              </div>
+            </div>
           </div>
-          <form action={logoutAction}>
-            <button
-              type="submit"
-              className="text-xs font-black bg-red-600 text-white px-6 py-2.5 hover:bg-red-700 border border-red-600 transition-all uppercase tracking-widest"
-            >
-              Terminate Session
-            </button>
-          </form>
+        </div>
+      </header>
+
+      {/* Navigation Bar */}
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-2">
+              <Link href="/admin/audit" className={navLinkStyle("/admin/audit")}>
+                Audit Ledger
+              </Link>
+              <Link
+                href="/admin/conflicts"
+                className={navLinkStyle("/admin/conflicts")}
+              >
+                Conflicts
+              </Link>
+              <Link
+                href="/admin/privacy"
+                className={navLinkStyle("/admin/privacy")}
+              >
+                Privacy
+              </Link>
+            </div>
+
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Logout
+              </button>
+            </form>
+          </div>
         </div>
       </nav>
 
-      {/* COMPACT LEDGER TABLE */}
-      <main className="relative z-10 p-10 max-w-7xl mx-auto">
+      {/* Breadcrumb */}
+      <div className="bg-gray-100 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Link href="/" className="hover:text-[#000080]">
+              Home
+            </Link>
+            <span>/</span>
+            <Link href="/admin" className="hover:text-[#000080]">
+              Admin
+            </Link>
+            <span>/</span>
+            <span className="text-[#000080] font-semibold">Audit Ledger</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-[#000080] mb-2 border-b-4 border-[#FF9933] inline-block pb-2">
+            Audit Ledger
+          </h1>
+          <p className="text-gray-600 mt-4">
+            Immutable blockchain-inspired audit trail of all voter record changes
+          </p>
+        </div>
+
         {/* Verification Section */}
-        <div className="mb-6 bg-white/[0.03] border border-white/10 p-6 backdrop-blur-xl">
-          <div className="flex justify-between items-center mb-4">
+        <div className="mb-6 bg-white border-2 border-gray-200 rounded-lg shadow-md p-6">
+          <div className="flex justify-between items-start mb-4">
             <div>
-              <h3 className="text-sm font-black uppercase tracking-tight text-white/90">
+              <h3 className="text-lg font-bold text-[#000080] mb-2">
                 Chain Integrity Verification
               </h3>
-              <p className="text-[9px] text-white/40 uppercase tracking-widest mt-1">
-                Status: {chainIntegrity}
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Status:</span>
+                <span className="px-3 py-1 bg-blue-50 border border-blue-200 text-blue-700 text-sm font-semibold rounded">
+                  {chainIntegrity}
+                </span>
+              </div>
             </div>
             <button
               onClick={handleVerifyChain}
               disabled={verifying || loading}
-              className="px-6 py-2.5 text-xs font-black uppercase tracking-widest border border-blue-500/30 bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2.5 text-sm font-semibold bg-[#000080] text-white rounded hover:bg-[#FF9933] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {verifying ? "Verifying..." : "Verify Chain"}
+              {verifying ? (
+                <>
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                  Verifying...
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <path d="M9 12l2 2 4-4" />
+                  </svg>
+                  Verify Chain
+                </>
+              )}
             </button>
           </div>
 
           {/* Verification Result */}
           {verificationResult && (
-            <div className={`p-4 border ${
-              verificationResult.valid 
-                ? "border-emerald-500/30 bg-emerald-500/5 text-emerald-400" 
-                : "border-red-500/30 bg-red-500/5 text-red-400"
-            }`}>
-              <div className="text-[10px] font-black uppercase tracking-widest mb-2">
-                {verificationResult.valid ? "✓ Verification Passed" : "✗ Verification Failed"}
-              </div>
-              <div className="text-[9px] text-white/60 space-y-1">
-                {verificationResult.message && (
-                  <div>{verificationResult.message}</div>
-                )}
-                {verificationResult.verifiedCount !== undefined && (
-                  <div>
-                    Verified: {verificationResult.verifiedCount} / {verificationResult.totalEntries} entries
+            <div
+              className={`p-4 rounded border-l-4 ${
+                verificationResult.valid
+                  ? "border-green-500 bg-green-50"
+                  : "border-red-500 bg-red-50"
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                <div
+                  className={`flex-shrink-0 ${
+                    verificationResult.valid
+                      ? "text-green-600"
+                      : "text-red-600"
+                  }`}
+                >
+                  {verificationResult.valid ? (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                  ) : (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <div
+                    className={`text-sm font-bold mb-2 ${
+                      verificationResult.valid
+                        ? "text-green-800"
+                        : "text-red-800"
+                    }`}
+                  >
+                    {verificationResult.valid
+                      ? "✓ Verification Passed"
+                      : "✗ Verification Failed"}
                   </div>
-                )}
-                {verificationResult.errors && verificationResult.errors.length > 0 && (
-                  <div className="mt-2">
-                    <div className="font-black mb-1">Errors:</div>
-                    {verificationResult.errors.slice(0, 5).map((error, idx) => (
-                      <div key={idx} className="text-red-400">
-                        • {error.message || error.issue}
-                      </div>
-                    ))}
-                    {verificationResult.errors.length > 5 && (
-                      <div className="text-white/40">
-                        ... and {verificationResult.errors.length - 5} more errors
+                  <div
+                    className={`text-xs space-y-1 ${
+                      verificationResult.valid
+                        ? "text-green-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    {verificationResult.message && (
+                      <div>{verificationResult.message}</div>
+                    )}
+                    {verificationResult.verifiedCount !== undefined && (
+                      <div>
+                        Verified: {verificationResult.verifiedCount} /{" "}
+                        {verificationResult.totalEntries} entries
                       </div>
                     )}
+                    {verificationResult.errors &&
+                      verificationResult.errors.length > 0 && (
+                        <div className="mt-2">
+                          <div className="font-bold mb-1">Errors:</div>
+                          {verificationResult.errors
+                            .slice(0, 5)
+                            .map((error, idx) => (
+                              <div key={idx} className="text-red-600">
+                                • {error.message || error.issue}
+                              </div>
+                            ))}
+                          {verificationResult.errors.length > 5 && (
+                            <div className="text-gray-600">
+                              ... and {verificationResult.errors.length - 5}{" "}
+                              more errors
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
-                )}
+                </div>
               </div>
             </div>
           )}
         </div>
 
-        <div className="bg-white/[0.03] border border-white/10 shadow-2xl backdrop-blur-xl overflow-hidden">
-          <div className="p-6 border-b border-white/5 bg-white/5 flex justify-between items-center">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.3em] text-white/40">
-              Immutable_Chain_Explorer // Genesis_Node_V2
+        {/* Ledger Table */}
+        <div className="bg-white border-2 border-gray-200 rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-[#FF9933]/10 to-[#138808]/10 flex justify-between items-center">
+            <h2 className="text-lg font-bold text-[#000080]">
+              Ledger Entries
             </h2>
             <button
               onClick={fetchLedgerData}
               disabled={loading}
-              className="text-[9px] font-black uppercase tracking-widest px-3 py-1 border border-white/20 hover:bg-white hover:text-black transition-all disabled:opacity-50"
+              className="px-4 py-2 text-sm font-semibold border-2 border-[#000080] text-[#000080] rounded hover:bg-[#000080] hover:text-white transition-colors disabled:opacity-50"
             >
               {loading ? "Loading..." : "Refresh"}
             </button>
@@ -240,72 +414,115 @@ export default function AdminLedger() {
 
           {loading ? (
             <div className="p-12 text-center">
-              <div className="text-white/40 text-sm uppercase tracking-widest">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#000080] mb-4"></div>
+              <div className="text-gray-600 text-sm font-semibold">
                 Loading Ledger Data...
               </div>
             </div>
           ) : ledgerEvents.length === 0 ? (
             <div className="p-12 text-center">
-              <div className="text-white/40 text-sm uppercase tracking-widest">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mx-auto text-gray-400 mb-4"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="12" y1="18" x2="12" y2="12" />
+                <line x1="9" y1="15" x2="15" y2="15" />
+              </svg>
+              <div className="text-gray-600 text-sm font-semibold mb-2">
                 No Ledger Entries Found
               </div>
-              <div className="text-white/20 text-[10px] mt-2">
+              <div className="text-gray-500 text-xs">
                 Ledger entries will appear here as events are processed
               </div>
             </div>
           ) : (
             <>
-              <table className="w-full text-left">
-                <thead className="bg-white/5 uppercase tracking-[0.2em] text-[9px] font-black text-white/30">
-                  <tr>
-                    <th className="p-4">Block ID</th>
-                    <th className="p-4">Event Type</th>
-                    <th className="p-4">Current Hash</th>
-                    <th className="p-4">Prev Hash</th>
-                    <th className="p-4">Timestamp</th>
-                    <th className="p-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {ledgerEvents.map((event) => (
-                    <tr
-                      key={event.id}
-                      className="hover:bg-white/[0.03] transition-colors group border-white/5"
-                    >
-                      <td className="p-4 text-[10px] font-bold text-blue-400 group-hover:text-blue-300">
-                        {event.id.substring(0, 12)}...
-                      </td>
-                      <td className="p-4 text-[11px] font-black uppercase tracking-tight">
-                        {event.eventType || event.type}
-                      </td>
-                      <td className="p-4 text-[9px] font-mono text-white/30 group-hover:text-white/60 transition-all cursor-help" title={event.curr_hash || event.hash}>
-                        {formatHash(event.curr_hash || event.hash)}
-                      </td>
-                      <td className="p-4 text-[9px] font-mono text-white/30 group-hover:text-white/60 transition-all cursor-help" title={event.prev_hash || event.prev}>
-                        {formatHash(event.prev_hash || event.prev)}
-                      </td>
-                      <td className="p-4 text-[10px] font-mono text-white/50">
-                        {formatTimestamp(event.timestamp || event.time)}
-                      </td>
-                      <td className="p-4 text-right">
-                        <span className="text-[9px] border border-emerald-500/30 bg-emerald-500/5 text-emerald-500 px-2 py-0.5 rounded-sm font-black uppercase tracking-widest">
-                          VERIFIED
-                        </span>
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left">
+                  <thead className="bg-gray-100 border-b-2 border-gray-200">
+                    <tr>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                        Block ID
+                      </th>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                        Event Type
+                      </th>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                        Current Hash
+                      </th>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                        Previous Hash
+                      </th>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                        Timestamp
+                      </th>
+                      <th className="p-4 text-xs font-bold text-gray-700 uppercase text-right">
+                        Status
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {ledgerEvents.map((event) => (
+                      <tr
+                        key={event.id}
+                        className="hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="p-4 text-sm font-mono text-[#000080]">
+                          {event.id.substring(0, 12)}...
+                        </td>
+                        <td className="p-4 text-sm font-semibold text-gray-900">
+                          {event.eventType || event.type}
+                        </td>
+                        <td
+                          className="p-4 text-xs font-mono text-gray-600 cursor-help"
+                          title={event.curr_hash || event.hash}
+                        >
+                          {formatHash(event.curr_hash || event.hash)}
+                        </td>
+                        <td
+                          className="p-4 text-xs font-mono text-gray-600 cursor-help"
+                          title={event.prev_hash || event.prev}
+                        >
+                          {formatHash(event.prev_hash || event.prev)}
+                        </td>
+                        <td className="p-4 text-xs text-gray-600">
+                          {formatTimestamp(event.timestamp || event.time)}
+                        </td>
+                        <td className="p-4 text-right">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                            VERIFIED
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-              {/* Table Decoration */}
-              <div className="p-4 border-t border-white/5 bg-black/20 flex justify-between items-center">
-                <p className="text-[8px] uppercase tracking-[0.5em] text-white/20">
-                  Total Entries: {ledgerEvents.length} Chain Integrity: {chainIntegrity}
+              {/* Table Footer */}
+              <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-between items-center">
+                <p className="text-xs text-gray-600">
+                  Total Entries:{" "}
+                  <span className="font-bold text-[#000080]">
+                    {ledgerEvents.length}
+                  </span>{" "}
+                  | Chain Integrity:{" "}
+                  <span className="font-bold text-[#000080]">
+                    {chainIntegrity}
+                  </span>
                 </p>
-                <div className="flex gap-2">
-                  <div className="w-1 h-1 bg-white/20"></div>
-                  <div className="w-1 h-1 bg-white/20"></div>
-                  <div className="w-1 h-1 bg-white/20"></div>
+                <div className="text-xs text-gray-500">
+                  Encryption: AES-256-GCM | Hash: SHA-256
                 </div>
               </div>
             </>
@@ -313,15 +530,18 @@ export default function AdminLedger() {
         </div>
       </main>
 
-      {/* FOOTER */}
-      <div className="fixed bottom-0 left-0 w-full p-4 flex justify-between items-center border-t border-white/5 bg-black/90 backdrop-blur-md z-10">
-        <div className="text-[8px] font-mono text-white/30 uppercase tracking-[0.5em]">
-          Protocol: SHA-256 Hash Chaining // Secure_Layer: Active
+      {/* Footer */}
+      <footer className="bg-[#000080] text-white py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-xs mb-2">
+            © 2026 Election Commission of India. All Rights Reserved.
+          </p>
+          <p className="text-xs text-white/70">
+            Content Owned, Updated and Maintained by Election Commission of
+            India
+          </p>
         </div>
-        <div className="text-[8px] font-mono text-white/30 uppercase tracking-[0.5em]">
-          Anchor_Point: PostgreSQL_Mainframe
-        </div>
-      </div>
+      </footer>
     </div>
   );
 }

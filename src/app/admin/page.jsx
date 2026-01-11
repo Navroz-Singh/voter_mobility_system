@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { usePathname } from "next/navigation"; // To detect if admin or officer
+import { usePathname } from "next/navigation";
 import { loginAction } from "@/actions/auth";
 
 export default function GovernmentLogin() {
@@ -34,83 +34,304 @@ export default function GovernmentLogin() {
   }
 
   return (
-    <div className="relative min-h-screen bg-black text-white flex flex-col items-center justify-center px-6">
-      {/* Background Grid */}
-      <div
-        className="fixed inset-0 z-0 pointer-events-none opacity-[0.07]"
-        style={{
-          backgroundImage: `linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }}
-      ></div>
-
-      <div className="relative z-10 w-full max-w-md border border-white/20 bg-white/5 p-12 backdrop-blur-xl shadow-2xl">
-        <h1 className="text-4xl font-black italic uppercase tracking-tighter mb-2">
-          {roleTitle}
-        </h1>
-        <p className="text-white/50 font-mono text-[10px] uppercase mb-10 tracking-[0.3em] border-b border-white/10 pb-4">
-          Secure Government Terminal
-        </p>
-
-        {/* ERROR DISPLAY */}
-        {error && (
-          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/50 text-red-400 text-[10px] font-mono uppercase tracking-widest animate-pulse">
-            Error: {error}
+    <div className="min-h-screen bg-gray-50">
+      {/* Government Header Bar */}
+      <div className="bg-[#000080] text-white py-2">
+        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-xs">
+          <div className="flex items-center gap-6">
+            <span>Screen Reader Access</span>
+            <span>Skip to Main Content</span>
           </div>
-        )}
-
-        <form action={handleLogin} className="space-y-6">
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mb-2">
-              Service ID
-            </label>
-            <input
-              name="gov_id"
-              type="text"
-              required
-              className="w-full bg-transparent border border-white/20 p-4 focus:border-white outline-none transition-all font-mono text-sm"
-              placeholder="GOV-XXXX-XXXX"
-            />
+          <div className="flex items-center gap-4">
+            <button className="hover:underline">English</button>
+            <span>|</span>
+            <button className="hover:underline">हिन्दी</button>
           </div>
-          <div>
-            <label className="block text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mb-2">
-              Secure Passcode
-            </label>
-            <input
-              name="password"
-              type="password"
-              required
-              className="w-full bg-transparent border border-white/20 p-4 focus:border-white outline-none transition-all font-mono text-sm"
-              placeholder="••••••••"
-            />
-          </div>
-
-          <button
-            disabled={isLoading}
-            className={`w-full font-black py-4 uppercase transition-all tracking-widest text-sm ${
-              isLoading
-                ? "bg-white/20 text-white/40 cursor-not-allowed"
-                : "bg-white text-black hover:bg-black hover:text-white hover:border hover:border-white"
-            }`}
-          >
-            {isLoading ? "Authenticating..." : "Authorize Session"}
-          </button>
-        </form>
-
-        <div className="mt-8 pt-8 border-t border-white/10 text-center">
-          <p className="text-[10px] text-white/30 uppercase leading-relaxed tracking-wider">
-            Unauthorized access is strictly prohibited under the IT Act. All
-            sessions are logged on the immutable ledger.
-          </p>
         </div>
       </div>
 
-      <Link
-        href="/"
-        className="mt-8 text-white/40 text-[10px] font-bold hover:text-white transition-colors uppercase tracking-[0.4em]"
-      >
-        ← Terminal Exit
-      </Link>
+      {/* Main Header */}
+      <header className="bg-white border-b-4 border-[#FF9933] shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-[#000080] rounded-full flex items-center justify-center text-white font-bold">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-10 h-10"
+                  >
+                    <circle cx="12" cy="12" r="10" fill="#FF9933" />
+                    <circle cx="12" cy="12" r="7" fill="#FFFFFF" />
+                    <circle cx="12" cy="12" r="4" fill="#138808" />
+                    <circle cx="12" cy="12" r="1" fill="#000080" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[#000080]">
+                    V-LINK 2.1
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Voter Ledger & Identity Network
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Election Commission of India
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          {/* Login Card */}
+          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
+            {/* Card Header */}
+            <div className="bg-gradient-to-r from-[#FF9933] to-[#000080] p-6 text-white">
+              <div className="flex items-center gap-3 mb-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="32"
+                  height="32"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <div>
+                  <h1 className="text-2xl font-bold">{roleTitle}</h1>
+                  <p className="text-sm text-white/90">Secure Login Portal</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Card Body */}
+            <div className="p-8">
+              {/* Security Notice */}
+              <div className="bg-blue-50 border-l-4 border-[#000080] p-4 mb-6">
+                <div className="flex items-start gap-3">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="text-[#000080] flex-shrink-0 mt-0.5"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="16" x2="12" y2="12" />
+                    <line x1="12" y1="8" x2="12.01" y2="8" />
+                  </svg>
+                  <p className="text-xs text-gray-700 leading-relaxed">
+                    This is a secure government portal. Please enter your
+                    authorized credentials to proceed.
+                  </p>
+                </div>
+              </div>
+
+              {/* ERROR DISPLAY */}
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
+                  <div className="flex items-start gap-3">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="20"
+                      height="20"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="text-red-500 flex-shrink-0 mt-0.5"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" y1="9" x2="9" y2="15" />
+                      <line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                    <div>
+                      <p className="text-sm font-semibold text-red-800 mb-1">
+                        Authentication Failed
+                      </p>
+                      <p className="text-xs text-red-700">{error}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form action={handleLogin} className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Service ID / Government ID
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    name="gov_id"
+                    type="text"
+                    required
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                    placeholder="Enter your Service ID"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Format: GOV-XXXX-XXXX
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Password
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    name="password"
+                    type="password"
+                    required
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                    placeholder="Enter your password"
+                  />
+                </div>
+
+                <button
+                  disabled={isLoading}
+                  className={`w-full py-3 px-4 rounded font-semibold text-white transition-all ${
+                    isLoading
+                      ? "bg-gray-400 cursor-not-allowed"
+                      : "bg-[#000080] hover:bg-[#FF9933] shadow-md hover:shadow-lg"
+                  }`}
+                >
+                  {isLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg
+                        className="animate-spin h-5 w-5 text-white"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      Authenticating...
+                    </span>
+                  ) : (
+                    "Sign In"
+                  )}
+                </button>
+              </form>
+
+              {/* Additional Links */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex items-center justify-between text-xs">
+                  <a
+                    href="#"
+                    className="text-[#000080] hover:text-[#FF9933] font-medium"
+                  >
+                    Forgot Password?
+                  </a>
+                  <a
+                    href="#"
+                    className="text-[#000080] hover:text-[#FF9933] font-medium"
+                  >
+                    Need Help?
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Security Notice */}
+          <div className="mt-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="text-yellow-600 flex-shrink-0 mt-0.5"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              <div>
+                <p className="text-xs font-semibold text-yellow-800 mb-1">
+                  Security Notice
+                </p>
+                <p className="text-xs text-yellow-700 leading-relaxed">
+                  Unauthorized access is strictly prohibited under the IT Act.
+                  All sessions are logged on the immutable ledger for audit
+                  purposes.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Back to Home */}
+          <div className="mt-6 text-center">
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-[#000080] font-medium transition-colors"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="19" y1="12" x2="5" y2="12" />
+                <polyline points="12 19 5 12 12 5" />
+              </svg>
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer */}
+      <footer className="bg-[#000080] text-white py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-xs mb-2">
+            © 2026 Election Commission of India. All Rights Reserved.
+          </p>
+          <p className="text-xs text-white/70">
+            Content Owned, Updated and Maintained by Election Commission of
+            India
+          </p>
+        </div>
+      </footer>
     </div>
   );
 }

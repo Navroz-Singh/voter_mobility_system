@@ -1,0 +1,2257 @@
+File: /src/actions/audit.js
+
+"use server";
+
+import { verifyLedgerIntegrity, verifyVoterChain, verifySingleEntry } from "@/lib/hashVerification";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Verifies the entire ledger chain integrity
+ * @returns {Promise<{success: boolean, result?: object, error?: string}>}
+ */
+export async function verifyLedgerChainAction() {
+  try {
+    const result = await verifyLedgerIntegrity();
+    revalidatePath("/admin/audit");
+    return { success: true, result };
+  } catch (error) {
+    console.error("Ledger verification error:", error);
+    return { success: false, error: "Verification failed" };
+  }
+}
+
+/**
+ * Verifies hash chain for a specific voter
+ * @param {string} epicNumber - Voter's EPIC number
+ * @returns {Promise<{success: boolean, result?: object, error?: string}>}
+ */
+export async function verifyVoterChainAction(epicNumber) {
+  try {
+    if (!epicNumber) {
+      return { success: false, error: "EPIC number is required" };
+    }
+
+    const result = await verifyVoterChain(epicNumber);
+    return { success: true, result };
+  } catch (error) {
+    console.error("Voter chain verification error:", error);
+    return { success: false, error: "Verification failed" };
+  }
+}
+
+
+
+/**
+ * Verifies a single ledger entry
+ * @param {string} entryId - Entry ID to verify
+ * @returns {Promise<{success: boolean, result?: object, error?: string}>}
+ */
+export async function verifyEntryAction(entryId) {
+  try {
+    if (!entryId) {
+      return { success: false, error: "Entry ID is required" };
+    }
+
+    const result = await verifySingleEntry(entryId);
+    return { success: true, result };
+  } catch (error) {
+    console.error("Entry verification error:", error);
+    return { success: false, error: "Verification failed" };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/auth.js
+
+"use server";
+import { prisma } from "@/lib/db";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import bcrypt from "bcrypt";
+
+/**
+ * Handles User Login (Voter, Officer, Admin)
+ */
+export async function loginAction(formData) {
+  // 1. FORCE UPPERCASE to match the normalized storage format
+  const identifier = formData.get("identifier")?.toUpperCase();
+  const password = formData.get("password");
+
+  if (!identifier || !password) {
+    return { error: "Missing Credentials." };
+  }
+
+  // Find user by either EPIC (Voter) or Gov ID (Officer)
+  const user = await prisma.user.findFirst({
+    where: {
+      OR: [{ epic_number: identifier }, { gov_id: identifier }],
+    },
+  });
+
+  if (!user || !user.password_hash) {
+    return { error: "Identity not recognized." };
+  }
+
+  // Prevent login if the account is still in "Placeholder" mode
+  const isPlaceholder =
+    user.password_hash === "OFFLINE_PROVISIONED_PENDING_CLAIM" ||
+    user.password_hash === "OFFLINE_ENROLLMENT_PENDING_CLAIM";
+
+  if (isPlaceholder) {
+    return {
+      error: "Account pending claim. Please use the 'Claim Account' button.",
+    };
+  }
+
+  // Standard Password Verification
+  const isValid = await bcrypt.compare(password, user.password_hash);
+  if (!isValid) return { error: "Invalid Credentials." };
+
+  // Create Session
+  const cookieStore = await cookies();
+  await cookieStore.set("vlink_session", user.id, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24, // 24 hours
+    path: "/",
+  });
+
+  // Role-Based Redirects
+  if (user.role === "ADMIN") redirect("/admin/audit");
+  if (user.role === "OFFICER") redirect("/officer/register");
+  if (user.role === "VOTER") redirect("/voter/authenticated/check");
+}
+
+/**
+ * Handles "Claim Account" Logic (Formerly Register)
+ */
+export async function registerVoterAction(formData) {
+  // 1. FORCE UPPERCASE to ensure we find the correct record
+  const epic = formData.get("identifier")?.toUpperCase();
+  const password = formData.get("password");
+
+  if (!epic || !password) {
+    return { error: "EPIC ID and New Password required." };
+  }
+
+  // Find the existing record created by the Officer
+  const existingUser = await prisma.user.findUnique({
+    where: { epic_number: epic },
+  });
+
+  if (!existingUser) {
+    return {
+      error: "No enrollment record found. Please visit a Field Officer.",
+    };
+  }
+
+  // Security Check: Only allow claim if it's currently a placeholder
+  const isPendingClaim =
+    existingUser.password_hash === "OFFLINE_PROVISIONED_PENDING_CLAIM" ||
+    existingUser.password_hash === "OFFLINE_ENROLLMENT_PENDING_CLAIM" || 
+    existingUser.password_hash ==="PENDING_CLAIM";
+
+  if (!isPendingClaim) {
+    return { error: "Account already claimed. Please Sign In." };
+  }
+
+  // Hash the new password and update the user record
+  const hashedPassword = await bcrypt.hash(password, 10);
+  let userId = existingUser.id;
+
+  try {
+    await prisma.user.update({
+      where: { epic_number: epic },
+      data: {
+        password_hash: hashedPassword, // Replace placeholder with real hash
+        isVerified: true, // Mark account as verified by user
+        status: "ACTIVE",
+      },
+    });
+
+    // Auto-Login the user immediately
+    const cookieStore = await cookies();
+    await cookieStore.set("vlink_session", userId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24,
+      path: "/",
+    });
+  } catch (err) {
+    console.error("Claim Error:", err);
+    return { error: "System Error: Could not finalize claim." };
+  }
+
+  // Redirect to Voter Dashboard
+  redirect("/voter/authenticated/check");
+}
+
+export async function logoutAction() {
+  const cookieStore = await cookies();
+  cookieStore.delete("vlink_session");
+  redirect("/");
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/conflicts.js
+
+"use server";
+
+import { prisma } from "@/lib/db";
+import { sendToRelocationQueue } from "@/lib/rabbitmq"; // Your existing helper
+import { revalidatePath } from "next/cache";
+
+/**
+ * Fetches conflicts from Postgres (populated by DLQ Worker)
+ */
+export async function getConflictsAction() {
+  try {
+    const conflicts = await prisma.conflictLog.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      take: 50,
+    });
+
+    return {
+      success: true,
+      conflicts: conflicts.map((c) => ({
+        id: c.id, // DB ID
+        epic: c.epic_number,
+        // Helper to extract name safely from the JSON payload
+        voter: `${c.original_payload?.payload?.firstName || ""} ${c.original_payload?.payload?.lastName || ""}`.trim(),
+        issue: c.conflict_reason,
+        timestamp: c.createdAt,
+        version: c.actual_version || 0,
+        // Pass full original data for retry logic
+        fullEvent: c.original_payload 
+      })),
+    };
+  } catch (error) {
+    console.error("Error fetching conflicts:", error);
+    return { success: false, error: "Database unavailable" };
+  }
+}
+
+/**
+ * Accept Remote: We effectively discard the failed packet because
+ * we assume the system state is already fresher or we want to ignore the update.
+ */
+export async function acceptRemoteVersionAction(conflictId) {
+  try {
+    // Mark as resolved in DB so it disappears from UI
+    await prisma.conflictLog.update({
+      where: { id: conflictId },
+      data: { status: "RESOLVED_DISCARDED" }
+    });
+
+    revalidatePath("/admin/conflicts");
+    return { success: true, message: "Conflict resolved: Remote version accepted" };
+  } catch (error) {
+    console.error("Error resolving conflict:", error);
+    return { success: false, error: "Failed to update conflict status" };
+  }
+}
+
+/**
+ * Keep Local (Force Retry): We take the original payload, 
+ * update its expected version to match the DB, and re-send to Main Queue.
+ */
+export async function keepLocalVersionAction(conflictId, eventData) {
+  try {
+    // 1. Get current live version from User table
+    const currentUser = await prisma.user.findUnique({
+      where: { epic_number: eventData.payload.epic.toUpperCase() },
+      select: { version: true }
+    });
+
+    // 2. Patch the event with the *current* DB version 
+    // This allows the optimistic lock to pass when the worker processes it again
+    const patchedEvent = {
+      ...eventData,
+      expected_version: currentUser ? currentUser.version : 0,
+      retry_count: (eventData.retry_count || 0) + 1,
+      retry_metadata: {
+        retried_at: new Date().toISOString(),
+        previous_conflict_id: conflictId
+      }
+    };
+
+    // 3. Send back to MAIN Queue (Relocation Queue)
+    await sendToRelocationQueue(patchedEvent);
+
+    // 4. Mark conflict as resolved in DB
+    await prisma.conflictLog.update({
+      where: { id: conflictId },
+      data: { status: "RESOLVED_RETRIED" }
+    });
+
+    revalidatePath("/admin/conflicts");
+    return { success: true, message: "Conflict resolved: Re-queued for processing" };
+  } catch (error) {
+    console.error("Error resolving conflict:", error);
+    return { success: false, error: "Failed to re-queue message" };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/officer.js
+
+"use server";
+import { prisma } from "@/lib/db";
+import { sendToRelocationQueue } from "@/lib/rabbitmq";
+import { revalidatePath } from "next/cache";
+
+// --- 1. EXISTING: Fetch Logic ---
+export async function fetchVoterByEPIC(epicNumber) {
+  if (!epicNumber || typeof epicNumber !== "string") {
+    return { error: "Invalid EPIC number" };
+  }
+  const normalized = epicNumber.toUpperCase().trim();
+  try {
+    const voter = await prisma.user.findUnique({
+      where: { epic_number: normalized },
+      include: {
+        relocationRequests: {
+          where: { status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+    if (!voter) return { error: "No voter found with this EPIC ID." };
+    return { success: true, voter };
+  } catch (error) {
+    console.error("Fetch Error:", error);
+    return { error: "Database connection failed." };
+  }
+}
+
+// --- 2. NEW: Batch Sync Logic (For Sync & Logout) ---
+/**
+ * Submits a batch of events from PouchDB to the queue
+ * @param {Array} events - Array of PouchDB documents with voter data
+ */
+export async function submitEventBatch(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return { success: true, synced: 0, failed: 0 };
+  }
+
+  let synced = 0;
+  let failed = 0;
+  const errors = [];
+
+  for (const event of events) {
+    try {
+      // Normalize data structure
+      const epic = (event.epic || event.epic_number || "").toUpperCase().trim();
+      const aadhaar = (event.aadhaar || event.aadhaar_uid || "").trim();
+
+      // Basic Validation
+      if (!epic) {
+        errors.push({ id: event._id, error: "Missing EPIC number" });
+        failed++;
+        continue;
+      }
+
+      // Check if voter exists to get version for CAS (Concurrency Control)
+      let expectedVersion = undefined;
+      let existingVoterId = null;
+
+      try {
+        const existingVoter = await prisma.user.findUnique({
+          where: { epic_number: epic },
+          select: { id: true, version: true },
+        });
+        if (existingVoter) {
+          expectedVersion = existingVoter.version;
+          existingVoterId = existingVoter.id;
+        }
+      } catch (dbError) {
+        // If DB fails, we log but continue processing other records
+        console.warn(
+          `Version check failed for ${epic}, treating as new/blind write.`
+        );
+      }
+
+      // Prepare event packet
+      const eventPacket = {
+        type:
+          expectedVersion !== undefined
+            ? "IDENTITY_MIGRATION_COMMIT"
+            : "OFFLINE_ENROLLMENT_COMMIT",
+        version: 2.1,
+        requestId: null, // Batch events usually don't have a pre-existing RelocationRequest ID
+        voterId: existingVoterId, // null for new enrollments
+        expected_version: expectedVersion,
+        payload: {
+          firstName: event.firstName || "",
+          lastName: event.lastName || "",
+          epic: epic,
+          aadhaar: aadhaar,
+          constituency: event.constituency || "",
+        },
+        metadata: {
+          fieldUnit: "402",
+          timestamp: event.timestamp || new Date().toISOString(),
+          source: "POUCHDB_BATCH_SYNC",
+          original_id: event._id,
+        },
+      };
+
+      // Send to queue
+      const brokerResponse = await sendToRelocationQueue(eventPacket);
+
+      if (brokerResponse.success) {
+        synced++;
+      } else {
+        errors.push({
+          id: event._id,
+          error: brokerResponse.error || "Queue rejected packet",
+        });
+        failed++;
+      }
+    } catch (error) {
+      console.error("Batch Item Error:", error);
+      errors.push({
+        id: event._id,
+        error: error.message || "Processing error",
+      });
+      failed++;
+    }
+  }
+
+  // Refresh Queue UI if officer is looking at it
+  revalidatePath("/officer/queue");
+
+  return {
+    success: failed === 0,
+    synced,
+    failed,
+    errors: errors.length > 0 ? errors : undefined,
+  };
+}
+
+// --- 3. EXISTING: Single Commit Logic ---
+export async function commitVoterUpdate(voterId, updateData) {
+  try {
+    let pendingReqId = null;
+    let expectedVersion = undefined;
+
+    // 1. Branch Logic: If voterId exists, this is a Relocation/Update
+    if (voterId) {
+      // Fetch current user to get version for CAS
+      const currentVoter = await prisma.user.findUnique({
+        where: { id: voterId },
+        select: {
+          id: true,
+          version: true,
+          epic_number: true,
+          aadhaar_uid: true,
+          firstName: true,
+          lastName: true,
+        },
+      });
+
+      if (!currentVoter) {
+        return { error: "Voter not found" };
+      }
+
+      // Get current version for optimistic concurrency control
+      expectedVersion = currentVoter.version;
+
+      const pendingReq = await prisma.relocationRequest.findFirst({
+        where: { voterId, status: "PENDING" },
+      });
+
+      if (pendingReq) pendingReqId = pendingReq.id;
+
+      // Fill in missing identifiers from current voter
+      if (!updateData.epic || !updateData.aadhaar) {
+        updateData.epic = updateData.epic || currentVoter.epic_number;
+        updateData.aadhaar = updateData.aadhaar || currentVoter.aadhaar_uid;
+        updateData.firstName = updateData.firstName || currentVoter.firstName;
+        updateData.lastName = updateData.lastName || currentVoter.lastName;
+      }
+    }
+
+    // 2. Prepare the Event Packet
+    const eventPacket = {
+      type: voterId ? "IDENTITY_MIGRATION_COMMIT" : "OFFLINE_ENROLLMENT_COMMIT",
+      version: 2.1,
+      requestId: pendingReqId,
+      voterId: voterId,
+      expected_version: expectedVersion,
+      payload: {
+        firstName: updateData.firstName,
+        lastName: updateData.lastName,
+
+        // Now this will always be populated, even for updates
+        epic: updateData.epic,
+        aadhaar: updateData.aadhaar,
+
+        constituency: updateData.constituency,
+      },
+      metadata: {
+        fieldUnit: "402",
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    // 3. Dispatch to RabbitMQ
+    console.log(
+      "📦 [3] Dispatching Complete Packet:",
+      JSON.stringify(eventPacket, null, 2)
+    );
+
+    const brokerResponse = await sendToRelocationQueue(eventPacket);
+    if (!brokerResponse.success) {
+      return { error: "Sync Error: RabbitMQ Broker unreachable." };
+    }
+
+    // 4. Update status ONLY if it was a relocation
+    if (voterId && pendingReqId) {
+      await prisma.relocationRequest.update({
+        where: { id: pendingReqId },
+        data: { status: "PROCESSING" },
+      });
+    }
+
+    revalidatePath("/officer/update");
+    revalidatePath("/officer/queue");
+    return { success: true };
+  } catch (error) {
+    console.error("PIPELINE ERROR:", error);
+    return { error: "Critical failure in commit pipeline." };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/privacy.js
+
+"use server";
+
+import { prisma } from "@/lib/db";
+import { deleteVoterKey, canDecryptVoterData, decryptPayload, encryptPayload } from "@/lib/encryption";
+import { revalidatePath } from "next/cache";
+import crypto from "crypto";
+
+/**
+ * Shreds a voter's personal data by deleting their encryption key
+ * @param {string} voterId - EPIC number or voter ID
+ * @returns {Promise<{success: boolean, error?: string}>}
+ */
+export async function shredVoterDataAction(voterId) {
+  try {
+    if (!voterId) {
+      return { success: false, error: "Voter ID is required" };
+    }
+
+    // Normalize EPIC to uppercase
+    const normalizedVoterId = voterId.toUpperCase();
+
+    // Check if key exists
+    const keyExists = await canDecryptVoterData(normalizedVoterId);
+    if (!keyExists) {
+      return { 
+        success: false, 
+        error: "Voter data already shredded or key not found" 
+      };
+    }
+
+    // Get user record to log the shredding event
+    const user = await prisma.user.findUnique({
+      where: { epic_number: normalizedVoterId },
+      include: { auditLogs: { orderBy: { timestamp: "desc" }, take: 1 } },
+    });
+
+    if (!user) {
+      return { success: false, error: "Voter not found" };
+    }
+
+    // Perform shredding in transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Delete the encryption key (this makes data unreadable)
+      await deleteVoterKey(normalizedVoterId);
+
+      // 2. Update user status to DELETED
+      await tx.user.update({
+        where: { id: user.id },
+        data: { status: "DELETED" },
+      });
+
+      // 3. Log the shredding event to ledger (for audit trail)
+      const prevHash = user.auditLogs[0]?.curr_hash || "0";
+
+      const shredPayload = { 
+        action: "SHRED_REQUEST", 
+        voterId: normalizedVoterId,
+        timestamp: new Date().toISOString() 
+      };
+      const { encrypted, iv } = await encryptPayload(normalizedVoterId, shredPayload);
+
+      const currHash = crypto
+        .createHash("sha256")
+        .update(prevHash + encrypted + iv + "ADMIN_SHRED_SIG")
+        .digest("hex");
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          eventType: "SHRED_REQUEST",
+          encrypted_payload: encrypted, // Placeholder, actual data is now unreadable
+          iv: iv,
+          signature: "ADMIN_SHRED_SIG",
+          prev_hash: prevHash,
+          curr_hash: currHash,
+        },
+      });
+    });
+
+    revalidatePath("/admin/privacy");
+    return { success: true, message: "Voter data successfully shredded" };
+  } catch (error) {
+    console.error("Shredding error:", error);
+    return { success: false, error: "Failed to shred voter data" };
+  }
+}
+
+/**
+ * Checks if a voter's data can be decrypted
+ * @param {string} voterId - EPIC number
+ * @returns {Promise<{canDecrypt: boolean, error?: string}>}
+ */
+export async function checkVoterDataStatusAction(voterId) {
+  try {
+    if (!voterId) {
+      return { canDecrypt: false, error: "Voter ID is required" };
+    }
+
+    const normalizedVoterId = voterId.toUpperCase();
+    const canDecrypt = await canDecryptVoterData(normalizedVoterId);
+
+    return { 
+      canDecrypt, 
+      message: canDecrypt 
+        ? "Data is readable" 
+        : "Data has been shredded (key deleted)" 
+    };
+  } catch (error) {
+    console.error("Status check error:", error);
+    return { canDecrypt: false, error: "Failed to check status" };
+  }
+}
+
+
+/**
+ * Attempts to decrypt and return voter data (for testing/verification)
+ * @param {string} voterId - EPIC number
+ * @returns {Promise<{success: boolean, data?: object, error?: string}>}
+ */
+export async function decryptVoterDataAction(voterId) {
+  try {
+    if (!voterId) {
+      return { success: false, error: "Voter ID is required" };
+    }
+
+    const normalizedVoterId = voterId.toUpperCase();
+
+    // Get the latest ledger entry
+    const user = await prisma.user.findUnique({
+      where: { epic_number: normalizedVoterId },
+      include: { 
+        auditLogs: { 
+          orderBy: { timestamp: "desc" }, 
+          take: 1 
+        } 
+      },
+    });
+
+    if (!user || !user.auditLogs[0]) {
+      return { success: false, error: "No ledger entry found" };
+    }
+
+    const latestLog = user.auditLogs[0];
+
+    // Attempt to decrypt
+    try {
+      const decrypted = await decryptPayload(
+        normalizedVoterId,
+        latestLog.encrypted_payload,
+        latestLog.iv
+      );
+
+      return { success: true, data: decrypted };
+    } catch (decryptError) {
+      if (decryptError.message.includes("not found") || decryptError.message.includes("shredded")) {
+        return { 
+          success: false, 
+          error: "Data has been cryptographically shredded. Key not found." 
+        };
+      }
+      throw decryptError;
+    }
+  } catch (error) {
+    console.error("Decryption error:", error);
+    return { success: false, error: "Failed to decrypt data" };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/relocation.js
+
+"use server";
+
+import { prisma } from "@/lib/db";
+import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import crypto from "crypto";
+import { encryptPayload } from "@/lib/encryption";
+
+export async function requestRelocationAction(formData) {
+  const targetZone = formData.get("targetZone");
+  const cookieStore = await cookies();
+  const sessionId = cookieStore.get("vlink_session")?.value;
+
+  if (!sessionId || !targetZone)
+    return { error: "Session or Target Zone missing." };
+
+  try {
+    // --- FIX: Added options object as the second argument ---
+    return await prisma.$transaction(
+      async (tx) => {
+        // 1. Get current user snapshot
+        const user = await tx.user.findUnique({ where: { id: sessionId } });
+
+        if (!user) {
+          return { error: "User not found" };
+        }
+
+        // 2. Create the PENDING Request (Buffer Layer)
+        await tx.relocationRequest.create({
+          data: {
+            voterId: user.id,
+            fromZone: user.constituency || "UNASSIGNED",
+            toZone: targetZone,
+            status: "PENDING",
+          },
+        });
+
+        // 3. Hash-Link to the Immutable Ledger
+        const lastLog = await tx.auditLog.findFirst({
+          where: { userId: user.id },
+          orderBy: { timestamp: "desc" },
+        });
+
+        const prevHash = lastLog?.curr_hash || "0";
+        const payloadData = { from: user.constituency, to: targetZone };
+
+        if (!user.epic_number) {
+          throw new Error("User EPIC number is required for encryption");
+        }
+
+        const { encrypted, iv } = await encryptPayload(
+          user.epic_number,
+          payloadData
+        );
+
+        const currHash = crypto
+          .createHash("sha256")
+          .update(prevHash + encrypted + iv + "VOTER_AUTH_SIG")
+          .digest("hex");
+
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            eventType: "RELOCATION_INITIATED",
+            encrypted_payload: encrypted,
+            iv: iv,
+            signature: "VOTER_AUTH_SIG",
+            prev_hash: prevHash,
+            curr_hash: currHash,
+          },
+        });
+
+        revalidatePath("/voter/relocate");
+        return { success: true };
+      },
+      {
+        // --- TIMEOUT SETTINGS ---
+        maxWait: 5000, // Max time to wait for a database connection
+        timeout: 20000, // Max time the transaction can run (20s) before Prisma cancels it
+      }
+    );
+  } catch (err) {
+    console.error("Transaction Failed:", err);
+    return { error: "Database transaction failed (Latency/Timeout)." };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/sync.js
+
+"use server";
+import { prisma } from "@/lib/db";
+import { sendToRelocationQueue } from "@/lib/rabbitmq";
+import { revalidatePath } from "next/cache";
+
+/**
+ * Submits a batch of events from PouchDB to the queue
+ * @param {Array} events - Array of PouchDB documents with voter data
+ * @returns {Promise<{success: boolean, synced: number, failed: number, errors?: Array}>}
+ */
+export async function submitEventBatch(events) {
+  if (!Array.isArray(events) || events.length === 0) {
+    return { success: true, synced: 0, failed: 0 };
+  }
+
+  let synced = 0;
+  let failed = 0;
+  const errors = [];
+
+  for (const event of events) {
+    try {
+      // Validate event structure
+      if (!event.epic && !event.epic_number) {
+        errors.push({
+          id: event._id,
+          error: "Missing EPIC number",
+        });
+        failed++;
+        continue;
+      }
+
+      // Normalize data structure
+      const epic = (event.epic || event.epic_number || "").toUpperCase();
+      const aadhaar = event.aadhaar || event.aadhaar_uid || "";
+
+      if (!epic) {
+        errors.push({
+          id: event._id,
+          error: "EPIC number is required",
+        });
+        failed++;
+        continue;
+      }
+
+      // Check if voter exists to get version for CAS
+      let expectedVersion = undefined;
+      try {
+        const existingVoter = await prisma.user.findUnique({
+          where: { epic_number: epic },
+          select: { version: true },
+        });
+        if (existingVoter) {
+          expectedVersion = existingVoter.version;
+        }
+      } catch (dbError) {
+        // If voter doesn't exist, expectedVersion stays undefined (new registration)
+        console.log("New voter registration:", epic);
+      }
+
+      // Prepare event packet
+      const eventPacket = {
+        type: expectedVersion !== undefined 
+          ? "IDENTITY_MIGRATION_COMMIT" 
+          : "OFFLINE_ENROLLMENT_COMMIT",
+        version: 2.1,
+        requestId: null,
+        voterId: null,
+        expected_version: expectedVersion, // ✅ Include for CAS
+        payload: {
+          firstName: event.firstName || "",
+          lastName: event.lastName || "",
+          epic: epic,
+          aadhaar: aadhaar,
+          constituency: event.constituency || "",
+        },
+        metadata: {
+          fieldUnit: "402",
+          timestamp: event.timestamp || new Date().toISOString(),
+          source: "POUCHDB_SYNC",
+          original_id: event._id,
+        },
+      };
+
+      // Send to queue
+      const brokerResponse = await sendToRelocationQueue(eventPacket);
+      if (brokerResponse.success) {
+        synced++;
+      } else {
+        errors.push({
+          id: event._id,
+          error: brokerResponse.error || "Queue error",
+        });
+        failed++;
+      }
+    } catch (error) {
+      console.error("Error processing event:", error);
+      errors.push({
+        id: event._id,
+        error: error.message || "Processing error",
+      });
+      failed++;
+    }
+  }
+
+  revalidatePath("/officer/queue");
+  
+  return {
+    success: failed === 0,
+    synced,
+    failed,
+    errors: errors.length > 0 ? errors : undefined,
+  };
+}
+
+// Keep the old function for backward compatibility
+export async function commitVoterUpdate(voterId, updateData) {
+  try {
+    let pendingReqId = null;
+    let expectedVersion = undefined;
+
+    if (voterId) {
+      const currentVoter = await prisma.user.findUnique({
+        where: { id: voterId },
+        select: { version: true, epic_number: true, aadhaar_uid: true },
+      });
+
+      if (currentVoter) {
+        expectedVersion = currentVoter.version;
+        updateData.epic = updateData.epic || currentVoter.epic_number;
+        updateData.aadhaar = updateData.aadhaar || currentVoter.aadhaar_uid;
+      }
+
+      const pendingReq = await prisma.relocationRequest.findFirst({
+        where: { voterId, status: "PENDING" },
+      });
+
+      if (pendingReq) pendingReqId = pendingReq.id;
+    }
+
+    const eventPacket = {
+      type: voterId ? "IDENTITY_MIGRATION_COMMIT" : "OFFLINE_ENROLLMENT_COMMIT",
+      version: 2.1,
+      requestId: pendingReqId,
+      voterId: voterId,
+      expected_version: expectedVersion, // ✅ Include for CAS
+      payload: {
+        firstName: updateData.firstName,
+        lastName: updateData.lastName,
+        epic: updateData.epic,
+        aadhaar: updateData.aadhaar,
+        constituency: updateData.constituency,
+      },
+      metadata: {
+        fieldUnit: "402",
+        timestamp: new Date().toISOString(),
+      },
+    };
+
+    const brokerResponse = await sendToRelocationQueue(eventPacket);
+    if (!brokerResponse.success) {
+      return { error: "Sync Error: RabbitMQ Broker unreachable." };
+    }
+
+    if (voterId && pendingReqId) {
+      await prisma.relocationRequest.update({
+        where: { id: pendingReqId },
+        data: { status: "PROCESSING" },
+      });
+    }
+
+    revalidatePath("/officer/update");
+    revalidatePath("/officer/queue");
+    return { success: true };
+  } catch (error) {
+    console.error("PIPELINE ERROR:", error);
+    return { error: "Critical failure in commit pipeline." };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/actions/worker.js
+
+"use server";
+import { spawn } from "child_process";
+import { revalidatePath } from "next/cache";
+
+let workerProcess = null;
+
+export async function startLedgerWorkerAction() {
+  console.log("🚀 [System] Request received to start Ledger Worker...");
+
+  // 1. Force Kill existing worker if running (Hard Reset)
+  if (workerProcess) {
+    console.log("🔄 [System] Stopping active worker to restart...");
+    workerProcess.kill();
+    workerProcess = null;
+    // Brief pause to ensure the port/file handles release
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  try {
+    // 2. Spawn new worker with "inherit" to pipe logs to VS Code Terminal
+    workerProcess = spawn("node", ["src/workers/ledgerWorker.js"], {
+      stdio: "inherit",
+    });
+
+    workerProcess.on("error", (err) => {
+      console.error("❌ [Worker Error]:", err);
+      workerProcess = null;
+    });
+
+    workerProcess.on("close", (code) => {
+      // Don't log if we killed it intentionally (null check)
+      if (workerProcess) {
+        console.log(`[System] Worker stopped with code ${code}`);
+        workerProcess = null;
+      }
+    });
+
+    // 3. Wait a moment for startup logs to print
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    revalidatePath("/officer/queue");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to spawn worker:", error);
+    return { success: false, error: "Worker failed to start" };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/app/api/admin/ledger/route.js
+
+import { prisma } from "@/lib/db";
+import { verifyLedgerIntegrity } from "@/lib/hashVerification";
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    // Fetch all ledger entries
+    const entries = await prisma.auditLog.findMany({
+      orderBy: { timestamp: "asc" },
+      select: {
+        id: true,
+        eventType: true,
+        curr_hash: true,
+        prev_hash: true,
+        timestamp: true,
+        signature: true,
+      },
+      take: 1000, // Limit to last 1000 entries for performance
+    });
+
+    // Get integrity status
+    const integrityResult = await verifyLedgerIntegrity();
+    const integrity = integrityResult.valid
+      ? `${integrityResult.verifiedCount}/${integrityResult.totalEntries} Verified`
+      : `${integrityResult.errors.length} Errors`;
+
+    return NextResponse.json({
+      entries: entries.map((entry) => ({
+        id: entry.id,
+        eventType: entry.eventType,
+        curr_hash: entry.curr_hash,
+        prev_hash: entry.prev_hash,
+        timestamp: entry.timestamp,
+        signature: entry.signature,
+      })),
+      integrity,
+      totalEntries: entries.length,
+    });
+  } catch (error) {
+    console.error("Error fetching ledger:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch ledger data", entries: [], integrity: "Error" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/app/api/auth/[...nextauth]/route.js
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/hooks/useNetworkStatus.js
+
+"use client";
+import { useState, useEffect } from "react";
+
+export function useNetworkStatus() {
+  const [isOnline, setIsOnline] = useState(
+    typeof window !== "undefined" ? navigator.onLine : true
+  );
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
+
+  return isOnline;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/lib/db.js
+
+import { PrismaClient } from "@prisma/client";
+
+const globalForPrisma = global;
+
+export const prisma = globalForPrisma.prisma || new PrismaClient();
+
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/lib/encryption.js
+
+import crypto from "crypto";
+// ✅ Correct (Add curly braces)
+import { prisma } from "./db.js";
+
+// Master Key for encrypting voter keys (In production, use HSM or AWS KMS)
+// Store this in environment variable: MASTER_ENCRYPTION_KEY
+const MASTER_KEY =
+  process.env.MASTER_ENCRYPTION_KEY || crypto.randomBytes(32).toString("hex");
+const MASTER_IV =
+  process.env.MASTER_IV || crypto.randomBytes(16).toString("hex");
+
+/**
+ * Generates a new AES-256 key for a voter
+ * @param {string} voterId - The voter's EPIC number or unique ID
+ * @returns {Buffer} - Raw AES-256 key (32 bytes)
+ */
+export function generateVoterKey(voterId) {
+  // Generate a unique key for this voter
+  const keyMaterial = crypto
+    .createHash("sha256")
+    .update(voterId + Date.now() + crypto.randomBytes(16).toString("hex"))
+    .digest();
+
+  return keyMaterial; // 32 bytes for AES-256
+}
+
+/**
+ * Encrypts the voter's key using the master key
+ * @param {Buffer} voterKey - Raw voter key
+ * @returns {string} - Encrypted key (hex string)
+ */
+function encryptVoterKeyWithMaster(voterKey) {
+  const cipher = crypto.createCipheriv(
+    "aes-256-gcm",
+    Buffer.from(MASTER_KEY, "hex"),
+    Buffer.from(MASTER_IV, "hex")
+  );
+
+  let encrypted = cipher.update(voterKey, null, "hex");
+  encrypted += cipher.final("hex");
+
+  const authTag = cipher.getAuthTag().toString("hex");
+
+  // Store IV and authTag with encrypted key
+  return `${encrypted}:${MASTER_IV}:${authTag}`;
+}
+
+/**
+ * Decrypts the voter's key using the master key
+ * @param {string} encryptedKeyString - Encrypted key string
+ * @returns {Buffer} - Decrypted voter key
+ */
+function decryptVoterKeyWithMaster(encryptedKeyString) {
+  const [encrypted, iv, authTag] = encryptedKeyString.split(":");
+
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    Buffer.from(MASTER_KEY, "hex"),
+    Buffer.from(iv, "hex")
+  );
+  decipher.setAuthTag(Buffer.from(authTag, "hex"));
+
+  let decrypted = decipher.update(encrypted, "hex", null);
+  decrypted = Buffer.concat([decrypted, decipher.final()]);
+
+  return decrypted;
+}
+
+/**
+ * Gets or creates an encryption key for a voter
+ * @param {string} voterId - The voter's EPIC number
+ * @returns {Promise<Buffer>} - The voter's decrypted AES key
+ */
+export async function getOrCreateVoterKey(voterId) {
+  try {
+    // Try to find existing key
+    const keyRecord = await prisma.encryptionKey.findUnique({
+      where: { voter_id: voterId },
+    });
+
+    if (keyRecord) {
+      // Decrypt the stored key
+      return decryptVoterKeyWithMaster(keyRecord.encrypted_key);
+    }
+
+    // Create new key
+    const rawKey = generateVoterKey(voterId);
+    const encryptedKey = encryptVoterKeyWithMaster(rawKey);
+
+    // Store encrypted key in database
+    await prisma.encryptionKey.create({
+      data: {
+        voter_id: voterId,
+        encrypted_key: encryptedKey,
+      },
+    });
+
+    return rawKey;
+  } catch (error) {
+    console.error("Error getting/creating voter key:", error);
+    throw error;
+  }
+}
+
+/**
+ * Encrypts a payload using the voter's key
+ * @param {string} voterId - The voter's EPIC number
+ * @param {object} payload - The data to encrypt
+ * @returns {Promise<{encrypted: string, iv: string}>} - Encrypted data and IV
+ */
+export async function encryptPayload(voterId, payload) {
+  if (!voterId || typeof voterId !== "string") {
+    throw new Error("voterId is required and must be a string");
+  }
+  if (!payload || typeof payload !== "object") {
+    throw new Error("payload is required and must be an object");
+  }
+
+  try {
+    // Get or create voter's key
+    const voterKey = await getOrCreateVoterKey(voterId);
+
+    // Generate random IV for this encryption
+    const iv = crypto.randomBytes(16);
+
+    // Encrypt using AES-256-GCM
+    const cipher = crypto.createCipheriv("aes-256-gcm", voterKey, iv);
+
+    const plaintext = JSON.stringify(payload);
+    let encrypted = cipher.update(plaintext, "utf8", "hex");
+    encrypted += cipher.final("hex");
+
+    // Get authentication tag
+    const authTag = cipher.getAuthTag().toString("hex");
+
+    // Return encrypted data with IV and authTag
+    return {
+      encrypted: `${encrypted}:${authTag}`, // Combine encrypted data and auth tag
+      iv: iv.toString("hex"),
+    };
+  } catch (error) {
+    console.error("Error encrypting payload:", error);
+    throw error;
+  }
+}
+
+/**
+ * Decrypts a payload using the voter's key
+ * @param {string} voterId - The voter's EPIC number
+ * @param {string} encryptedData - Encrypted data with auth tag
+ * @param {string} ivHex - Initialization vector (hex string)
+ * @returns {Promise<object>} - Decrypted payload
+ */
+export async function decryptPayload(voterId, encryptedData, ivHex) {
+  try {
+    // Get voter's key
+    const keyRecord = await prisma.encryptionKey.findUnique({
+      where: { voter_id: voterId },
+    });
+
+    if (!keyRecord) {
+      throw new Error(
+        `Encryption key not found for voter: ${voterId}. Data may have been shredded.`
+      );
+    }
+
+    // Decrypt the voter key
+    const voterKey = decryptVoterKeyWithMaster(keyRecord.encrypted_key);
+
+    // Split encrypted data and auth tag
+    const [encrypted, authTag] = encryptedData.split(":");
+
+    if (!encrypted || !authTag) {
+      throw new Error("Invalid encrypted data format: missing auth tag");
+    }
+    const iv = Buffer.from(ivHex, "hex");
+
+    // Decrypt
+    const decipher = crypto.createDecipheriv("aes-256-gcm", voterKey, iv);
+    decipher.setAuthTag(Buffer.from(authTag, "hex"));
+
+    let decrypted = decipher.update(encrypted, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.error("Error decrypting payload:", error);
+    throw error;
+  }
+}
+
+/**
+ * Deletes a voter's encryption key (Cryptographic Shredding)
+ * @param {string} voterId - The voter's EPIC number
+ * @returns {Promise<void>}
+ */
+export async function deleteVoterKey(voterId) {
+  try {
+    // Delete the encryption key
+    await prisma.encryptionKey.delete({
+      where: { voter_id: voterId },
+    });
+
+    console.log(
+      `✅ Encryption key deleted for voter: ${voterId}. Data is now cryptographically shredded.`
+    );
+  } catch (error) {
+    if (error.code === "P2025") {
+      // Key already deleted
+      console.log(`Key already deleted for voter: ${voterId}`);
+      return;
+    }
+    console.error("Error deleting voter key:", error);
+    throw error;
+  }
+}
+
+/**
+ * Checks if a voter's data can be decrypted (key exists)
+ * @param {string} voterId - The voter's EPIC number
+ * @returns {Promise<boolean>} - True if key exists, false if shredded
+ */
+export async function canDecryptVoterData(voterId) {
+  try {
+    const keyRecord = await prisma.encryptionKey.findUnique({
+      where: { voter_id: voterId },
+    });
+    return !!keyRecord;
+  } catch (error) {
+    return false;
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/lib/hashVerification.js
+
+import crypto from 'crypto';
+import { prisma } from './db';
+
+/**
+ * Verifies the integrity of the hash chain using encrypted payloads
+ * This ensures the chain is valid without needing to decrypt the data
+ * 
+ * @param {string} userId - Optional: Verify chain for specific user
+ * @returns {Promise<{valid: boolean, errors: Array, verifiedCount: number}>}
+ */
+export async function verifyLedgerIntegrity(userId = null) {
+  const errors = [];
+  let verifiedCount = 0;
+  let totalEntries = 0;
+
+  try {
+    // 1. Get distinct User IDs if we are checking everything
+    let targetUserIds = [];
+    if (userId) {
+      targetUserIds = [userId];
+    } else {
+      const users = await prisma.user.findMany({ select: { id: true } });
+      targetUserIds = users.map(u => u.id);
+    }
+
+    // 2. Iterate through EACH user separately (Per-Voter Chain)
+    for (const uid of targetUserIds) {
+      const ledgerEntries = await prisma.auditLog.findMany({
+        where: { userId: uid },
+        orderBy: { timestamp: 'asc' }, // Chronological order per user
+      });
+
+      if (ledgerEntries.length === 0) continue;
+
+      totalEntries += ledgerEntries.length;
+      let prevHash = "0"; // Reset Genesis hash for EVERY new user
+
+      for (let i = 0; i < ledgerEntries.length; i++) {
+        const entry = ledgerEntries[i];
+
+        // A. Verify Chain Link
+        if (entry.prev_hash !== prevHash) {
+          errors.push({
+            entryId: entry.id,
+            userId: uid,
+            issue: 'Broken chain link',
+            expected: prevHash,
+            actual: entry.prev_hash,
+            message: `User ${uid} chain broken at entry ${entry.id}`
+          });
+          // If link is broken, we reset prevHash to current to try and verify the rest linearly
+          // or we can stop verification for this user.
+        }
+
+        const signatureToUse = entry.signature || "SYSTEM_SIGNED";
+
+        // B. Recalculate Hash
+        const calculatedHash = crypto
+          .createHash('sha256')
+          .update(
+            entry.prev_hash + 
+            entry.encrypted_payload + 
+            entry.iv + 
+            signatureToUse 
+          )
+          .digest('hex');
+
+        // C. Verify Data Integrity
+        if (calculatedHash !== entry.curr_hash) {
+          errors.push({
+            entryId: entry.id,
+            userId: uid,
+            issue: 'Hash mismatch',
+            expected: calculatedHash,
+            actual: entry.curr_hash,
+            message: `Data tampering detected in entry ${entry.id}`
+          });
+        } else {
+          verifiedCount++;
+        }
+
+        // Set for next iteration
+        prevHash = entry.curr_hash;
+      }
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+      verifiedCount,
+      totalEntries,
+      message: errors.length === 0 
+        ? `✅ Integrated Verified: ${verifiedCount}/${totalEntries} entries clean.` 
+        : `❌ Integrity Failed: ${errors.length} errors found.`
+    };
+
+  } catch (error) {
+    console.error('Verification Fatal Error:', error);
+    return { valid: false, errors: [error.message] };
+  }
+}
+
+
+
+/**
+ * Verifies a specific ledger entry's hash
+ * @param {string} entryId - The audit log entry ID
+ * @returns {Promise<{valid: boolean, error?: string}>}
+ */
+export async function verifySingleEntry(entryId) {
+  try {
+    const entry = await prisma.auditLog.findUnique({
+      where: { id: entryId },
+      select: {
+        id: true,
+        userId: true,
+        encrypted_payload: true,
+        iv: true,
+        signature: true,
+        prev_hash: true,
+        curr_hash: true,
+      },
+    });
+
+    if (!entry) {
+      return { valid: false, error: 'Entry not found' };
+    }
+
+    // Get previous entry to verify chain link
+    const prevEntry = await prisma.auditLog.findFirst({
+      where: {
+        userId: entry.userId,
+        curr_hash: entry.prev_hash,
+      },
+    });
+
+    const prevHash = prevEntry?.curr_hash || "0";
+
+    // Recalculate hash using ENCRYPTED payload
+    const calculatedHash = crypto
+      .createHash('sha256')
+      .update(
+        prevHash + 
+        entry.encrypted_payload + // ✅ Encrypted payload
+        entry.iv + 
+        entry.signature
+      )
+      .digest('hex');
+
+    const valid = calculatedHash === entry.curr_hash;
+    
+    return {
+      valid,
+      error: valid ? null : 'Hash mismatch - data may have been tampered with',
+      calculatedHash,
+      storedHash: entry.curr_hash,
+    };
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+}
+
+/**
+ * Verifies hash chain for a specific voter
+ * @param {string} epicNumber - Voter's EPIC number
+ * @returns {Promise<{valid: boolean, errors: Array, verifiedCount: number}>}
+ */
+export async function verifyVoterChain(epicNumber) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { epic_number: epicNumber.toUpperCase() },
+      select: { id: true },
+    });
+
+    if (!user) {
+      return {
+        valid: false,
+        errors: [{ issue: 'User not found', message: `No user found with EPIC: ${epicNumber}` }],
+        verifiedCount: 0,
+      };
+    }
+
+    return await verifyLedgerIntegrity(user.id);
+  } catch (error) {
+    return {
+      valid: false,
+      errors: [{ issue: 'Verification failed', message: error.message }],
+      verifiedCount: 0,
+    };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/lib/pouchdb.js
+
+let localDB = null;
+let PouchDB = null;
+
+const getDB = async () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  // Dynamically import PouchDB only in browser
+  if (!PouchDB) {
+    PouchDB = (await import("pouchdb-browser")).default;
+  }
+
+  if (!localDB) {
+    localDB = new PouchDB("vlink_local_voters");
+  }
+  return localDB;
+};
+
+export async function saveVoterLocally(voterData) {
+  const db = await getDB();
+  if (!db) return { success: false, error: "Database not available on server" };
+
+  // Validate required fields
+  if (!voterData.epic && !voterData.epic_number) {
+    return { success: false, error: "EPIC number is required" };
+  }
+
+  const epic = (
+    voterData.epic ||
+    voterData.epic_number ||
+    "UNKNOWN"
+  ).toUpperCase();
+
+  const enrollmentRecord = {
+    _id: `enroll_${epic}_${new Date().getTime()}`,
+    epic: epic,
+    epic_number: epic, // Support both field names
+    firstName: voterData.firstName || "",
+    lastName: voterData.lastName || "",
+    aadhaar: voterData.aadhaar || voterData.aadhaar_uid || "",
+    aadhaar_uid: voterData.aadhaar || voterData.aadhaar_uid || "",
+    constituency: voterData.constituency || "",
+    status: "OFFLINE_PENDING",
+    version: 2.1,
+    timestamp: new Date().toISOString(),
+  };
+
+  try {
+    const response = await db.put(enrollmentRecord);
+    return { success: true, id: response.id };
+  } catch (err) {
+    console.error("Local Buffer Write Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getLocalEnrollments() {
+  const db = await getDB();
+  if (!db) return [];
+
+  try {
+    const result = await db.allDocs({ include_docs: true });
+    return result.rows
+      .map((row) => row.doc)
+      .filter((doc) => doc.status === "OFFLINE_PENDING");
+  } catch (err) {
+    console.error("Fetch Local Docs Error:", err);
+    return [];
+  }
+}
+
+/**
+ * Marks a document as synced in PouchDB
+ * @param {string} docId - Document ID to mark as synced
+ */
+export async function markAsSynced(docId) {
+  const db = await getDB();
+  if (!db) return { success: false, error: "Database not available" };
+
+  try {
+    const doc = await db.get(docId);
+    doc.status = "SYNCED";
+    doc.synced_at = new Date().toISOString();
+    await db.put(doc);
+    return { success: true };
+  } catch (err) {
+    console.error("Mark as synced error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Removes synced documents from PouchDB (cleanup)
+ */
+export async function removeSyncedDocuments() {
+  const db = await getDB();
+  if (!db) return { success: false, error: "Database not available" };
+
+  try {
+    const result = await db.allDocs({ include_docs: true });
+    const syncedDocs = result.rows
+      .map((row) => row.doc)
+      .filter((doc) => doc.status === "SYNCED");
+
+    if (syncedDocs.length === 0) {
+      return { success: true, removed: 0 };
+    }
+
+    await Promise.all(syncedDocs.map((doc) => db.remove(doc._id, doc._rev)));
+
+    return { success: true, removed: syncedDocs.length };
+  } catch (err) {
+    console.error("Remove synced documents error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function clearLocalDB() {
+  const db = await getDB();
+  if (!db) return;
+
+  try {
+    const docs = await db.allDocs();
+    await Promise.all(docs.rows.map((row) => db.remove(row.id, row.value.rev)));
+    return { success: true };
+  } catch (err) {
+    console.error("Clear DB Error:", err);
+    return { success: false, error: err.message };
+  }
+}
+
+export async function getOfflineData() {
+  try {
+    const result = await db.allDocs({ include_docs: true });
+    // Filter out internal design docs if any, return just the data
+    return result.rows.map((row) => row.doc);
+  } catch (error) {
+    console.error("Failed to fetch local buffer:", error);
+    return [];
+  }
+}
+
+export async function clearOfflineData() {
+  try {
+    // Destroying recreates the DB on next call, effectively wiping it
+    await db.destroy();
+    db = new PouchDB("voter_offline_buffer");
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to clear local buffer:", error);
+    return { success: false };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/lib/rabbitmq.js
+
+import amqp from "amqplib";
+
+const RABBITMQ_URL = process.env.RABBITMQ_URL || "amqp://localhost";
+
+// 1. CHANGE TO v5
+const QUEUE_NAME = "relocation_ledger_queue_v7";
+const DLQ_NAME = "relocation_ledger_queue_dlq";
+
+export async function sendToRelocationQueue(payload) {
+  let connection = null;
+  let channel = null;
+
+  try {
+    connection = await amqp.connect(RABBITMQ_URL);
+    channel = await connection.createChannel();
+
+    // 2. CRITICAL FIX: Added 'arguments' to match the Worker
+    await channel.assertQueue(QUEUE_NAME, {
+      durable: true,
+      arguments: {
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": DLQ_NAME,
+      },
+    });
+
+    const sent = channel.sendToQueue(
+      QUEUE_NAME,
+      Buffer.from(JSON.stringify(payload)),
+      { persistent: true }
+    );
+
+    if (sent) {
+      console.log(" [x] Sent Packet to Queue:", payload.requestId || "N/A");
+    } else {
+      console.warn(" [!] Queue buffer full.");
+    }
+
+    await channel.close();
+    await connection.close();
+
+    return { success: true };
+  } catch (error) {
+    console.error("RabbitMQ Error:", error);
+    try {
+      if (channel) await channel.close();
+      if (connection) await connection.close();
+    } catch (ignore) {}
+
+    return { success: false, error: "Messaging Broker Offline" };
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+File: /src/workers/ledgerWorker.js
+
+import "dotenv/config";
+import amqp from "amqplib";
+import { PrismaClient } from "@prisma/client";
+import crypto from "crypto";
+import { encryptPayload } from "../lib/encryption.js";
+
+const prisma = new PrismaClient();
+const RABBITMQ_URL = process.env.RABBITMQ_URL;
+
+// Keep using v5 to match your currently working queue
+const QUEUE_NAME = "relocation_ledger_queue_v7";
+const DLQ_NAME = "relocation_ledger_queue_dlq";
+
+const DEFAULT_SIG = "SYSTEM_SIGNED"; 
+
+async function startWorker() {
+  if (!RABBITMQ_URL) {
+    console.error("❌ Error: RABBITMQ_URL is missing from .env");
+    process.exit(1);
+  }
+
+  try {
+    const connection = await amqp.connect(RABBITMQ_URL);
+    const channel = await connection.createChannel();
+
+    // Ensure Queue settings match Sender EXACTLY
+    await channel.assertQueue(QUEUE_NAME, {
+      durable: true,
+      arguments: {
+        "x-dead-letter-exchange": "",
+        "x-dead-letter-routing-key": DLQ_NAME,
+      },
+    });
+
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    channel.prefetch(10);
+
+    console.log(
+      ` [*] Worker Connected to ${QUEUE_NAME} (High-Latency Mode Active)`
+    );
+
+    channel.consume(QUEUE_NAME, async (msg) => {
+      if (!msg) return;
+
+      let event;
+      try {
+        event = JSON.parse(msg.content.toString());
+      } catch (e) {
+        console.error("Malformed JSON, sending to DLQ");
+        channel.nack(msg, false, false);
+        return;
+      }
+
+      console.log(`📥 Processing: ${event.payload?.epic}`);
+
+      try {
+        // --- THE FIX IS HERE ---
+        // We add the configuration object as the second argument
+        await prisma.$transaction(
+          async (tx) => {
+            // 1. Snapshot
+            const existingUser = await tx.user.findUnique({
+              where: { epic_number: event.payload.epic.toUpperCase() },
+              include: {
+                auditLogs: { orderBy: { timestamp: "desc" }, take: 1 },
+              },
+            });
+
+            // 2. Logic / Version Checks
+            if (existingUser && event.expected_version !== undefined) {
+              if (existingUser.version !== event.expected_version) {
+                throw new Error("VERSION_MISMATCH");
+              }
+            }
+
+            // 3. Crypto (Can be slow)
+            const { encrypted, iv } = await encryptPayload(
+              event.payload.epic,
+              event.payload
+            );
+
+            const finalSignature = event.signature || DEFAULT_SIG;
+            const prevHash = existingUser?.auditLogs[0]?.curr_hash || "0";
+
+            const currHash = crypto
+              .createHash("sha256")
+              .update(prevHash + encrypted + iv + finalSignature)
+              .digest("hex");
+
+            // 4. Update User (The part that was failing)
+            const updatedUser = await tx.user.upsert({
+              where: { epic_number: event.payload.epic.toUpperCase() },
+              update: {
+                firstName: event.payload.firstName,
+                lastName: event.payload.lastName,
+                constituency: event.payload.constituency,
+                aadhaar_uid: event.payload.aadhaar,
+                version: { increment: 1 },
+                status: "ACTIVE",
+              },
+              create: {
+                epic_number: event.payload.epic.toUpperCase(),
+                firstName: event.payload.firstName,
+                lastName: event.payload.lastName,
+                aadhaar_uid: event.payload.aadhaar,
+                constituency: event.payload.constituency,
+                version: 1,
+                status: "ACTIVE",
+                password_hash: "PENDING_CLAIM",
+              },
+            });
+
+            // 5. Audit Log
+            await tx.auditLog.create({
+              data: {
+                userId: updatedUser.id,
+                eventType: event.type,
+                encrypted_payload: encrypted,
+                iv: iv,
+                signature: finalSignature,
+                prev_hash: prevHash,
+                curr_hash: currHash,
+              },
+            });
+            // 6.
+            if (event.requestId) {
+              await tx.relocationRequest.update({
+                where: { id: event.requestId },
+                data: { status: "APPROVED" },
+              });
+              console.log(`📝 Request ${event.requestId} marked APPROVED`);
+            }
+          },
+          {
+            // --- EXTENDED TIMEOUTS ---
+            maxWait: 5000, // Wait 5s for connection
+            timeout: 20000, // Allow 20s for logic execution
+          }
+        );
+
+        console.log(`✅ Success: ${event.payload?.epic}`);
+        channel.ack(msg);
+      } catch (processError) {
+        console.error(`❌ Failed: ${processError.message}`);
+
+        // Error Handling / DLQ Logic
+        try {
+          await prisma.conflictLog.create({
+            data: {
+              epic_number: event.payload?.epic || "UNKNOWN",
+              original_payload: event,
+              conflict_reason: "PROCESSING_ERROR",
+              status: "PENDING",
+              error_message: processError.message,
+            },
+          });
+          channel.ack(msg);
+        } catch (dbError) {
+          console.error("🔥 DB Write Failed. Sending to DLQ.");
+          channel.nack(msg, false, false);
+        }
+      }
+    });
+  } catch (err) {
+    console.error("Worker Error:", err);
+  }
+}
+
+startWorker();
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

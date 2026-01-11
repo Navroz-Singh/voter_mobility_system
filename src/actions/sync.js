@@ -44,28 +44,56 @@ export async function submitEventBatch(events) {
 
       // Check if voter exists to get version for CAS
       let expectedVersion = undefined;
+      let existingVoterId = null;
+      let isNewEnrollment = false;
+
       try {
         const existingVoter = await prisma.user.findUnique({
           where: { epic_number: epic },
-          select: { version: true },
+          select: { id: true, version: true },
         });
         if (existingVoter) {
           expectedVersion = existingVoter.version;
+          existingVoterId = existingVoter.id;
         }
       } catch (dbError) {
         // If voter doesn't exist, expectedVersion stays undefined (new registration)
         console.log("New voter registration:", epic);
       }
 
+      // For new enrollments, create user directly in DB for immediate availability
+      if (!existingVoterId) {
+        try {
+          const newVoter = await prisma.user.create({
+            data: {
+              epic_number: epic,
+              firstName: event.firstName || "",
+              lastName: event.lastName || "",
+              aadhaar_uid: aadhaar,
+              constituency: event.constituency || "",
+              password_hash: "PENDING_CLAIM",
+              version: 1,
+              status: "ACTIVE",
+              role: "VOTER",
+            },
+          });
+          existingVoterId = newVoter.id;
+          expectedVersion = 1;
+          isNewEnrollment = true;
+          console.log(`✅ User created directly in DB from PouchDB sync: ${epic}`);
+        } catch (createError) {
+          // If creation fails (e.g., duplicate), log and continue to queue
+          console.warn(`User creation failed for ${epic}:`, createError.message);
+        }
+      }
+
       // Prepare event packet
       const eventPacket = {
-        type: expectedVersion !== undefined 
-          ? "IDENTITY_MIGRATION_COMMIT" 
-          : "OFFLINE_ENROLLMENT_COMMIT",
+        type: isNewEnrollment ? "OFFLINE_ENROLLMENT_COMMIT" : "IDENTITY_MIGRATION_COMMIT",
         version: 2.1,
         requestId: null,
-        voterId: null,
-        expected_version: expectedVersion, // ✅ Include for CAS
+        voterId: existingVoterId,
+        expected_version: expectedVersion,
         payload: {
           firstName: event.firstName || "",
           lastName: event.lastName || "",

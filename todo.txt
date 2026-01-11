@@ -1,0 +1,4 @@
+1. pouch db -> officer update page , show details on frontend
+2. frontend revamp
+3. frontend login typecasting
+4. 

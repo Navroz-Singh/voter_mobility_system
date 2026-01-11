@@ -58,6 +58,7 @@ export async function submitEventBatch(events) {
       // Check if voter exists to get version for CAS (Concurrency Control)
       let expectedVersion = undefined;
       let existingVoterId = null;
+      let isNewEnrollment = false;
 
       try {
         const existingVoter = await prisma.user.findUnique({
@@ -75,15 +76,38 @@ export async function submitEventBatch(events) {
         );
       }
 
+      // For new enrollments, create user directly in DB for immediate availability
+      if (!existingVoterId) {
+        try {
+          const newVoter = await prisma.user.create({
+            data: {
+              epic_number: epic,
+              firstName: event.firstName || "",
+              lastName: event.lastName || "",
+              aadhaar_uid: aadhaar,
+              constituency: event.constituency || "",
+              password_hash: "PENDING_CLAIM",
+              version: 1,
+              status: "ACTIVE",
+              role: "VOTER",
+            },
+          });
+          existingVoterId = newVoter.id;
+          expectedVersion = 1;
+          isNewEnrollment = true;
+          console.log(`✅ User created directly in DB from batch sync: ${epic}`);
+        } catch (createError) {
+          // If creation fails (e.g., duplicate), log and continue to queue
+          console.warn(`User creation failed for ${epic}:`, createError.message);
+        }
+      }
+
       // Prepare event packet
       const eventPacket = {
-        type:
-          expectedVersion !== undefined
-            ? "IDENTITY_MIGRATION_COMMIT"
-            : "OFFLINE_ENROLLMENT_COMMIT",
+        type: isNewEnrollment ? "OFFLINE_ENROLLMENT_COMMIT" : "IDENTITY_MIGRATION_COMMIT",
         version: 2.1,
         requestId: null, // Batch events usually don't have a pre-existing RelocationRequest ID
-        voterId: existingVoterId, // null for new enrollments
+        voterId: existingVoterId,
         expected_version: expectedVersion,
         payload: {
           firstName: event.firstName || "",
@@ -138,9 +162,49 @@ export async function commitVoterUpdate(voterId, updateData) {
   try {
     let pendingReqId = null;
     let expectedVersion = undefined;
+    let isNewEnrollment = false;
 
-    // 1. Branch Logic: If voterId exists, this is a Relocation/Update
-    if (voterId) {
+    // NEW: For new enrollments (no voterId), create user record directly in DB first
+    // This ensures the voter can claim their account immediately after officer registration
+    if (!voterId && updateData.epic) {
+      const normalizedEpic = updateData.epic.toUpperCase().trim();
+      
+      // Check if voter already exists
+      const existingVoter = await prisma.user.findUnique({
+        where: { epic_number: normalizedEpic },
+      });
+
+      if (existingVoter) {
+        return { error: "Voter with this EPIC number already exists." };
+      }
+
+      // Create user record directly for immediate availability
+      try {
+        const newVoter = await prisma.user.create({
+          data: {
+            epic_number: normalizedEpic,
+            firstName: updateData.firstName || "",
+            lastName: updateData.lastName || "",
+            aadhaar_uid: updateData.aadhaar || "",
+            constituency: updateData.constituency || "",
+            password_hash: "PENDING_CLAIM",
+            version: 1,
+            status: "ACTIVE",
+            role: "VOTER",
+          },
+        });
+        voterId = newVoter.id;
+        expectedVersion = 1;
+        isNewEnrollment = true;
+        console.log(`✅ User created directly in DB: ${normalizedEpic}`);
+      } catch (createError) {
+        console.error("Direct DB Create Error:", createError);
+        return { error: "Failed to create voter record." };
+      }
+    }
+
+    // 1. Branch Logic: If voterId exists AND it's NOT a fresh enrollment, this is a Relocation/Update
+    if (voterId && !isNewEnrollment) {
       // Fetch current user to get version for CAS
       const currentVoter = await prisma.user.findUnique({
         where: { id: voterId },
@@ -177,8 +241,9 @@ export async function commitVoterUpdate(voterId, updateData) {
     }
 
     // 2. Prepare the Event Packet
+    // Use OFFLINE_ENROLLMENT_COMMIT for new enrollments, IDENTITY_MIGRATION_COMMIT for updates
     const eventPacket = {
-      type: voterId ? "IDENTITY_MIGRATION_COMMIT" : "OFFLINE_ENROLLMENT_COMMIT",
+      type: isNewEnrollment ? "OFFLINE_ENROLLMENT_COMMIT" : "IDENTITY_MIGRATION_COMMIT",
       version: 2.1,
       requestId: pendingReqId,
       voterId: voterId,

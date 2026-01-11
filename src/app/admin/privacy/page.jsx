@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react"; // <--- ADD THIS IMPORT
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/actions/auth";
@@ -10,24 +10,19 @@ import {
 
 export default function AdminPrivacy() {
   const pathname = usePathname();
-  // Now these lines will work correctly
   const [voterId, setVoterId] = useState("");
   const [shredding, setShredding] = useState(false);
   const [shredResult, setShredResult] = useState(null);
   const [checking, setChecking] = useState(false);
   const [dataStatus, setDataStatus] = useState(null);
 
-  // ... rest of your component code remains exactly the same ...
-
   // Navigation Styling
-  const navLinkStyle = (path) => `
-    text-xs font-black px-4 py-2 transition-all uppercase tracking-[0.2em] border
-    ${
+  const navLinkStyle = (path) =>
+    `px-4 py-2 text-sm font-semibold transition-all rounded ${
       pathname === path
-        ? "bg-white text-black border-white"
-        : "border-white/20 text-white/50 hover:border-white/60 hover:text-white"
-    }
-  `;
+        ? "bg-[#000080] text-white"
+        : "text-gray-700 hover:bg-gray-100"
+    }`;
 
   const handleShred = async () => {
     if (!voterId.trim()) {
@@ -81,188 +76,599 @@ export default function AdminPrivacy() {
   };
 
   return (
-    <div className="relative min-h-screen bg-black text-white selection:bg-white selection:text-black overflow-x-hidden font-mono">
-      {/* Background Grid Overlay */}
-      <div
-        className="fixed inset-0 z-0 pointer-events-none opacity-[0.05]"
-        style={{
-          backgroundImage: `linear-gradient(to right, white 1px, transparent 1px), linear-gradient(to bottom, white 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-        }}
-      ></div>
-
-      {/* GLOBAL ADMIN NAVIGATION */}
-      <nav className="relative z-50 p-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-center backdrop-blur-md bg-black/50 gap-6">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="text-xl font-black italic uppercase tracking-tighter">
-              Admin_Audit <span className="text-red-500/50">#ROOT</span>
-            </h1>
-            <p className="text-[10px] uppercase tracking-[0.4em] text-white/50 mt-1">
-              Privacy_Engine: AES-256-GCM
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Government Header Bar */}
+      <div className="bg-[#000080] text-white py-2">
+        <div className="max-w-7xl mx-auto px-4 flex justify-between items-center text-xs">
+          <div className="flex items-center gap-6">
+            <span>Screen Reader Access</span>
+            <span>Skip to Main Content</span>
           </div>
-          <div className="flex gap-2 ml-6 border-l border-white/20 pl-6">
-            <Link href="/admin/audit" className={navLinkStyle("/admin/audit")}>
-              Ledger
-            </Link>
-            <Link
-              href="/admin/conflicts"
-              className={navLinkStyle("/admin/conflicts")}
-            >
-              Conflicts
-            </Link>
-            <Link
-              href="/admin/privacy"
-              className={navLinkStyle("/admin/privacy")}
-            >
-              Privacy
-            </Link>
+          <div className="flex items-center gap-4">
+            <button className="hover:underline">English</button>
+            <span>|</span>
+            <button className="hover:underline">हिन्दी</button>
           </div>
         </div>
-        <form action={logoutAction}>
-          <button
-            type="submit"
-            className="text-xs font-black bg-red-600 text-white px-6 py-2.5 hover:bg-red-700 border border-red-600 transition-all uppercase tracking-widest"
-          >
-            Terminate Session
-          </button>
-        </form>
-      </nav>
+      </div>
 
-      <main className="relative z-10 max-w-4xl mx-auto py-12 px-6">
-        {/* PRIVACY ENGINE STATUS */}
-        <div className="bg-white/[0.03] border border-white/10 p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden mb-8">
-          <div className="flex justify-between items-start mb-8">
-            <div>
-              <h2 className="text-xl font-black uppercase tracking-tighter italic text-white/90">
-                Privacy Engine Control
-              </h2>
-              <p className="text-[8px] font-mono uppercase tracking-[0.5em] text-white/30 mt-1">
-                Module: Cryptographic Shredding Gateway
-              </p>
+      {/* Main Header */}
+      <header className="bg-white border-b-4 border-[#FF9933] shadow-md">
+        <div className="max-w-7xl mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-[#000080] rounded-full flex items-center justify-center text-white font-bold">
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-10 h-10"
+                  >
+                    <circle cx="12" cy="12" r="10" fill="#FF9933" />
+                    <circle cx="12" cy="12" r="7" fill="#FFFFFF" />
+                    <circle cx="12" cy="12" r="4" fill="#138808" />
+                    <circle cx="12" cy="12" r="1" fill="#000080" />
+                  </svg>
+                </div>
+                <div>
+                  <div className="text-2xl font-bold text-[#000080]">
+                    V-LINK 2.1
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    Administrator Portal
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    Election Commission of India
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="px-3 py-1 border border-blue-500/30 bg-blue-500/5 text-blue-400 text-[8px] font-black uppercase tracking-widest">
-              Engine_Active
+            <div className="text-right">
+              <div className="flex items-center gap-2 text-sm mb-1">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="text-blue-600"
+                >
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <span className="text-blue-600 font-semibold">
+                  Privacy Engine Active
+                </span>
+              </div>
+              <div className="text-xs text-gray-500">AES-256-GCM Encryption</div>
             </div>
           </div>
+        </div>
+      </header>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* Shredding Protocol */}
-            <div className="p-6 border border-white/10 bg-white/[0.01] space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-red-500/80">
-                PII Shredding Protocol
-              </h3>
-              <p className="text-[11px] text-white/40 leading-relaxed uppercase">
-                Terminating a voter identity marker involves destroying the
-                specific AES-256 key associated with the record. This makes the
-                PII unrecoverable while preserving hash integrity.
+      {/* Navigation Bar */}
+      <nav className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="flex items-center justify-between h-14">
+            <div className="flex items-center gap-2">
+              <Link href="/admin/audit" className={navLinkStyle("/admin/audit")}>
+                Audit Ledger
+              </Link>
+              <Link
+                href="/admin/conflicts"
+                className={navLinkStyle("/admin/conflicts")}
+              >
+                Conflicts
+              </Link>
+              <Link
+                href="/admin/privacy"
+                className={navLinkStyle("/admin/privacy")}
+              >
+                Privacy
+              </Link>
+            </div>
+
+            <form action={logoutAction}>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-semibold bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              >
+                Logout
+              </button>
+            </form>
+          </div>
+        </div>
+      </nav>
+
+      {/* Breadcrumb */}
+      <div className="bg-gray-100 border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-2">
+          <div className="flex items-center gap-2 text-sm text-gray-600">
+            <Link href="/" className="hover:text-[#000080]">
+              Home
+            </Link>
+            <span>/</span>
+            <Link href="/admin" className="hover:text-[#000080]">
+              Admin
+            </Link>
+            <span>/</span>
+            <span className="text-[#000080] font-semibold">Privacy Management</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Page Title */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-[#000080] mb-2 border-b-4 border-[#FF9933] inline-block pb-2">
+            Privacy Management
+          </h1>
+          <p className="text-gray-600 mt-4">
+            Cryptographic shredding system for Right to be Forgotten (RTBF)
+            compliance
+          </p>
+        </div>
+
+        {/* Warning Banner */}
+        <div className="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+          <div className="flex items-start gap-3">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="text-red-600 flex-shrink-0 mt-0.5"
+            >
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-red-800 mb-1">
+                Critical Privacy Operations
               </p>
+              <p className="text-xs text-red-700 leading-relaxed">
+                This module handles irreversible cryptographic operations. All
+                actions are logged in the immutable audit ledger. Exercise
+                extreme caution when performing data shredding operations.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Main Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Data Shredding Card */}
+          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-red-500 to-red-600 p-4 text-white">
+              <div className="flex items-center gap-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="3 6 5 6 21 6" />
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                  <line x1="10" y1="11" x2="10" y2="17" />
+                  <line x1="14" y1="11" x2="14" y2="17" />
+                </svg>
+                <div>
+                  <h3 className="text-lg font-bold">Data Shredding Protocol</h3>
+                  <p className="text-xs text-white/90">RTBF Compliance Module</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded p-3">
+                <p className="text-xs text-yellow-800 leading-relaxed">
+                  <strong>How it works:</strong> Terminating a voter identity
+                  marker involves destroying the specific AES-256 encryption key
+                  associated with the record. This makes the PII permanently
+                  unrecoverable while preserving hash chain integrity.
+                </p>
+              </div>
+
               {/* Voter ID Input */}
-              <div className="space-y-2">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Voter EPIC Number
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
                 <input
                   type="text"
                   value={voterId}
                   onChange={(e) => setVoterId(e.target.value.toUpperCase())}
                   placeholder="Enter EPIC Number (e.g., V-DEL-1234)"
-                  className="w-full bg-black/50 border border-white/20 px-3 py-2 text-sm font-mono uppercase text-white placeholder-white/30 focus:border-white/50 focus:outline-none"
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase"
                 />
-
-                {/* Status Check Button */}
-                <button
-                  onClick={handleCheckStatus}
-                  disabled={checking || !voterId.trim()}
-                  className="w-full py-2 border border-blue-500/30 text-[9px] font-black uppercase hover:bg-blue-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {checking ? "Checking..." : "Check Data Status"}
-                </button>
-
-                {/* Status Display */}
-                {dataStatus && (
-                  <div
-                    className={`text-[9px] p-2 border ${
-                      dataStatus.canDecrypt
-                        ? "border-green-500/30 bg-green-500/5 text-green-400"
-                        : "border-red-500/30 bg-red-500/5 text-red-400"
-                    }`}
-                  >
-                    {dataStatus.canDecrypt
-                      ? "✓ Data is readable"
-                      : "✗ Data is shredded (unreadable)"}
-                    {dataStatus.error && (
-                      <div className="mt-1 text-red-400">
-                        {dataStatus.error}
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
+
+              {/* Status Check Button */}
+              <button
+                onClick={handleCheckStatus}
+                disabled={checking || !voterId.trim()}
+                className="w-full py-3 px-4 border-2 border-[#000080] text-[#000080] rounded font-semibold hover:bg-[#000080] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {checking ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Checking...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="16" x2="12" y2="12" />
+                      <line x1="12" y1="8" x2="12.01" y2="8" />
+                    </svg>
+                    Check Data Status
+                  </>
+                )}
+              </button>
+
+              {/* Status Display */}
+              {dataStatus && (
+                <div
+                  className={`p-3 rounded border-l-4 ${
+                    dataStatus.canDecrypt
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-500 bg-gray-50"
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    {dataStatus.canDecrypt ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-green-600 flex-shrink-0 mt-0.5"
+                      >
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-gray-600 flex-shrink-0 mt-0.5"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                      </svg>
+                    )}
+                    <div>
+                      <p
+                        className={`text-sm font-semibold ${
+                          dataStatus.canDecrypt
+                            ? "text-green-800"
+                            : "text-gray-800"
+                        }`}
+                      >
+                        {dataStatus.canDecrypt
+                          ? "✓ Data is readable"
+                          : "✗ Data is shredded (unreadable)"}
+                      </p>
+                      {dataStatus.error && (
+                        <p className="text-xs text-red-600 mt-1">
+                          {dataStatus.error}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Shred Button */}
               <button
                 onClick={handleShred}
                 disabled={shredding || !voterId.trim()}
-                className="w-full py-3 border border-red-500/30 text-[9px] font-black uppercase hover:bg-red-500 hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 px-4 bg-red-600 text-white rounded font-semibold hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {shredding ? "Shredding..." : "Initiate Selective Shred"}
+                {shredding ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
+                    </svg>
+                    Shredding...
+                  </>
+                ) : (
+                  <>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="16"
+                      height="16"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <polyline points="3 6 5 6 21 6" />
+                      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      <line x1="10" y1="11" x2="10" y2="17" />
+                      <line x1="14" y1="11" x2="14" y2="17" />
+                    </svg>
+                    Initiate Selective Shred
+                  </>
+                )}
               </button>
 
               {/* Result Display */}
               {shredResult && (
                 <div
-                  className={`text-[9px] p-2 border ${
+                  className={`p-3 rounded border-l-4 ${
                     shredResult.success
-                      ? "border-green-500/30 bg-green-500/5 text-green-400"
-                      : "border-red-500/30 bg-red-500/5 text-red-400"
+                      ? "border-green-500 bg-green-50"
+                      : "border-red-500 bg-red-50"
                   }`}
                 >
-                  {shredResult.success
-                    ? `✓ ${shredResult.message || "Data shredded successfully"}`
-                    : `✗ Error: ${shredResult.error || "Unknown error"}`}
+                  <div className="flex items-start gap-2">
+                    {shredResult.success ? (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-green-600 flex-shrink-0 mt-0.5"
+                      >
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="text-red-600 flex-shrink-0 mt-0.5"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="15" y1="9" x2="9" y2="15" />
+                        <line x1="9" y1="9" x2="15" y2="15" />
+                      </svg>
+                    )}
+                    <p
+                      className={`text-sm ${
+                        shredResult.success ? "text-green-800" : "text-red-800"
+                      }`}
+                    >
+                      {shredResult.success
+                        ? `✓ ${shredResult.message || "Data shredded successfully"}`
+                        : `✗ Error: ${shredResult.error || "Unknown error"}`}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Key Store Management */}
-            <div className="p-6 border border-white/10 bg-white/[0.01] space-y-4">
-              <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">
-                Master Key Store
-              </h3>
-              <p className="text-[11px] text-white/40 leading-relaxed uppercase">
-                Access to the Module 4 Key Store requires M-of-N multi-signature
-                authorization from judicial and election officials.
-              </p>
-              <button className="w-full py-3 border border-blue-500/30 text-[9px] font-black uppercase hover:bg-blue-500 hover:text-white transition-all">
+          {/* Key Store Management Card */}
+          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-md overflow-hidden">
+            <div className="bg-gradient-to-r from-[#000080] to-[#0000CD] p-4 text-white">
+              <div className="flex items-center gap-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <div>
+                  <h3 className="text-lg font-bold">Master Key Store</h3>
+                  <p className="text-xs text-white/90">Encryption Management</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  <strong>Security Protocol:</strong> Access to the Module 4 Key
+                  Store requires M-of-N multi-signature authorization from
+                  judicial and election officials. All key rotation operations
+                  are logged and require approval.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm text-gray-700">Encryption Type</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    AES-256-GCM
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm text-gray-700">Hash Algorithm</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    SHA-256
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center p-3 bg-gray-50 rounded border border-gray-200">
+                  <span className="text-sm text-gray-700">Key Rotation</span>
+                  <span className="text-xs px-2 py-1 bg-green-100 text-green-800 rounded font-semibold">
+                    Up to Date
+                  </span>
+                </div>
+              </div>
+
+              <button className="w-full py-3 px-4 border-2 border-[#000080] text-[#000080] rounded font-semibold hover:bg-[#000080] hover:text-white transition-colors flex items-center justify-center gap-2">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="16"
+                  height="16"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <polyline points="23 4 23 10 17 10" />
+                  <polyline points="1 20 1 14 7 14" />
+                  <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
+                </svg>
                 Rotate Master Keys
               </button>
+
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                <p className="text-xs text-yellow-800">
+                  <strong>Note:</strong> Key rotation requires administrative
+                  approval and will temporarily pause encryption operations.
+                </p>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* LOGS TABLE */}
-        <div className="bg-white/[0.03] border border-white/10 p-6 shadow-2xl">
-          <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 mb-4 px-2">
-            Recent Privacy Operations
-          </h3>
+        {/* Recent Operations Log */}
+        <div className="bg-white border-2 border-gray-200 rounded-lg shadow-md overflow-hidden">
+          <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+            <h3 className="text-lg font-bold text-[#000080]">
+              Recent Privacy Operations
+            </h3>
+            <p className="text-xs text-gray-600 mt-1">
+              Audit trail of cryptographic operations
+            </p>
+          </div>
+
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-[10px]">
-              <thead className="border-b border-white/5">
-                <tr className="text-white/30 uppercase">
-                  <th className="p-4">Timestamp</th>
-                  <th className="p-4">Operation</th>
-                  <th className="p-4">Status</th>
+            <table className="w-full text-left">
+              <thead className="bg-gray-100 border-b-2 border-gray-200">
+                <tr>
+                  <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                    Timestamp
+                  </th>
+                  <th className="p-4 text-xs font-bold text-gray-700 uppercase">
+                    Operation
+                  </th>
+                  <th className="p-4 text-xs font-bold text-gray-700 uppercase text-right">
+                    Status
+                  </th>
                 </tr>
               </thead>
-              <tbody className="text-white/60 uppercase divide-y divide-white/5">
-                <tr>
-                  <td className="p-4 font-mono">2025-12-30 11:41</td>
-                  <td className="p-4">Key Rotation: Root_Node_01</td>
-                  <td className="p-4 text-emerald-500">Success</td>
+              <tbody className="divide-y divide-gray-200">
+                <tr className="hover:bg-gray-50">
+                  <td className="p-4 text-sm font-mono text-gray-900">
+                    2025-12-30 11:41
+                  </td>
+                  <td className="p-4 text-sm text-gray-900">
+                    Key Rotation: Root_Node_01
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                      Success
+                    </span>
+                  </td>
                 </tr>
-                <tr>
-                  <td className="p-4 font-mono">2025-12-30 09:12</td>
-                  <td className="p-4">Shred Request: TX-4402</td>
-                  <td className="p-4 text-emerald-500">Verified</td>
+                <tr className="hover:bg-gray-50">
+                  <td className="p-4 text-sm font-mono text-gray-900">
+                    2025-12-30 09:12
+                  </td>
+                  <td className="p-4 text-sm text-gray-900">
+                    Shred Request: TX-4402
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                      Verified
+                    </span>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -270,15 +676,17 @@ export default function AdminPrivacy() {
         </div>
       </main>
 
-      {/* FOOTER - Security Metadata */}
-      <div className="fixed bottom-0 left-0 w-full p-4 flex justify-between items-center border-t border-white/5 bg-black/90 backdrop-blur-md z-10">
-        <div className="text-[8px] font-mono text-white/30 uppercase tracking-[0.5em]">
-          Auth: M-of-N Signature Verified
+      {/* Footer */}
+      <footer className="bg-[#000080] text-white py-6 mt-12">
+        <div className="max-w-7xl mx-auto px-4 text-center">
+          <p className="text-xs mb-2">
+            © 2026 Election Commission of India. All Rights Reserved.
+          </p>
+          <p className="text-xs text-white/70">
+            Content Owned, Updated and Maintained by Election Commission of India
+          </p>
         </div>
-        <div className="text-[8px] font-mono text-white/30 uppercase tracking-[0.5em]">
-          Encryption: AES-256-GCM // SHA-256
-        </div>
-      </div>
+      </footer>
     </div>
   );
 }
