@@ -9,7 +9,7 @@ import { encryptPayload } from "../lib/encryption.js";
 const prisma = new PrismaClient();
 const RABBITMQ_URL = process.env.RABBITMQ_URL;
 
-// Keep using v5 to match your currently working queue
+// using v7 to match currently working queue
 const QUEUE_NAME = "relocation_ledger_queue_v7";
 const DLQ_NAME = "relocation_ledger_queue_dlq";
 
