@@ -2,7 +2,7 @@ import "./globals.css"; // Ensure this file exists and has Tailwind directives
 import { SyncManager } from "@/components/SyncManager";
 
 export const metadata = {
-  title: "V-LINK 2.1 | Electoral Framework",
+  title: "V-LINK | Electoral Framework",
   description: "Secure Voter Mobility & Synchronization",
 };
 
