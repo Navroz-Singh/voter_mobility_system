@@ -156,7 +156,7 @@ export default function LandingPage() {
                   </svg>
                 </div>
                 <div>
-                  <div className="text-2xl font-bold text-[#000080]">V-LINK 2.1</div>
+                  <div className="text-2xl font-bold text-[#000080]">V-LINK</div>
                   <div className="text-sm text-gray-600">
                     Voter Ledger & Identity Network
                   </div>
@@ -215,7 +215,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-8 border-l-8 border-[#000080]">
             <h1 className="text-4xl font-bold text-[#000080] mb-4">
-              Welcome to V-LINK 2.1
+              Welcome to V-LINK
             </h1>
             <p className="text-xl text-gray-700 mb-4 leading-relaxed">
               Digital Voter Identity Management System
