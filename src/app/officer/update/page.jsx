@@ -5,17 +5,134 @@ import { usePathname } from "next/navigation";
 import { logoutAction } from "@/actions/auth";
 import { fetchVoterByEPIC, commitVoterUpdate } from "@/actions/officer";
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
+import {
+  validateEPIC,
+  validateName,
+  castToEPIC,
+  castToName,
+} from "@/lib/validation";
+import { ZONES, normalizeZone } from "@/lib/zones";
 
 export default function OfficerUpdate() {
   const [searchId, setSearchId] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const [searchTouched, setSearchTouched] = useState(false);
   const [voter, setVoter] = useState(null);
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
   const { isGoodConnection, isPoorConnection, latency } = useNetworkStatus();
 
+  // Form state (for update form)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [constituency, setConstituency] = useState("");
+
+  // Error state
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+  const [constituencyError, setConstituencyError] = useState("");
+
+  // Touched state
+  const [touched, setTouched] = useState({
+    firstName: false,
+    lastName: false,
+    constituency: false,
+  });
+
+  // Helper functions to compute errors
+  const getSearchError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "EPIC number is required";
+    const validation = validateEPIC(value);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getFirstNameError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "First name is required";
+    const validation = validateName(value, "First name");
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getLastNameError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Last name is required";
+    const validation = validateName(value, "Last name");
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getConstituencyError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Constituency is required";
+    return "";
+  };
+
+  // Search handlers
+  const handleSearchChange = (e) => {
+    const value = castToEPIC(e.target.value);
+    setSearchId(value);
+    if (searchTouched) {
+      setSearchError(getSearchError(value, true));
+    }
+  };
+
+  const handleSearchBlur = () => {
+    setSearchTouched(true);
+    setSearchError(getSearchError(searchId, true));
+  };
+
+  // Form handlers
+  const handleFirstNameChange = (e) => {
+    const value = castToName(e.target.value);
+    setFirstName(value);
+    if (touched.firstName) {
+      setFirstNameError(getFirstNameError(value, true));
+    }
+  };
+
+  const handleFirstNameBlur = () => {
+    setTouched({ ...touched, firstName: true });
+    setFirstNameError(getFirstNameError(firstName, true));
+  };
+
+  const handleLastNameChange = (e) => {
+    const value = castToName(e.target.value);
+    setLastName(value);
+    if (touched.lastName) {
+      setLastNameError(getLastNameError(value, true));
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    setTouched({ ...touched, lastName: true });
+    setLastNameError(getLastNameError(lastName, true));
+  };
+
+  const handleConstituencyChange = (e) => {
+    const value = e.target.value;
+    setConstituency(value);
+    if (touched.constituency) {
+      setConstituencyError(getConstituencyError(value, true));
+    }
+  };
+
+  const handleConstituencyBlur = () => {
+    setTouched({ ...touched, constituency: true });
+    setConstituencyError(getConstituencyError(constituency, true));
+  };
+
   const handleLookup = async (e) => {
     e.preventDefault();
-    if (!searchId.trim()) return;
+    
+    // Mark search as touched and validate
+    setSearchTouched(true);
+    const searchErr = getSearchError(searchId, true);
+    setSearchError(searchErr);
+
+    // If validation fails, don't search
+    if (searchErr) {
+      return;
+    }
 
     // Check connection before attempting lookup
     if (!isGoodConnection) {
@@ -32,9 +149,29 @@ export default function OfficerUpdate() {
 
       if (result.success) {
         setVoter(result.voter);
+        // Populate form with voter data
+        setFirstName(result.voter.firstName || "");
+        setLastName(result.voter.lastName || "");
+        setConstituency(
+          result.voter.relocationRequests?.[0]?.toZone ||
+          result.voter.constituency ||
+          ""
+        );
+        // Reset touched state for form
+        setTouched({
+          firstName: false,
+          lastName: false,
+          constituency: false,
+        });
+        setFirstNameError("");
+        setLastNameError("");
+        setConstituencyError("");
       } else {
         // 2. Clear state if no subject is found
         setVoter(null);
+        setFirstName("");
+        setLastName("");
+        setConstituency("");
         alert(result.error || "EPIC Record Not Found");
       }
     } catch (error) {
@@ -45,7 +182,31 @@ export default function OfficerUpdate() {
     }
   };
 
-  const handleCommit = async (formData) => {
+  const handleCommit = async (e) => {
+    e.preventDefault();
+    
+    // Mark all fields as touched and validate
+    const newTouched = {
+      firstName: true,
+      lastName: true,
+      constituency: true,
+    };
+    setTouched(newTouched);
+
+    // Compute all errors
+    const firstNameErr = getFirstNameError(firstName, true);
+    const lastNameErr = getLastNameError(lastName, true);
+    const constituencyErr = getConstituencyError(constituency, true);
+
+    setFirstNameError(firstNameErr);
+    setLastNameError(lastNameErr);
+    setConstituencyError(constituencyErr);
+
+    // If validation fails, don't submit
+    if (firstNameErr || lastNameErr || constituencyErr) {
+      return;
+    }
+
     // Check connection before attempting commit
     if (!isGoodConnection) {
       alert(isPoorConnection 
@@ -54,10 +215,13 @@ export default function OfficerUpdate() {
       return;
     }
 
+    // Normalize constituency to standard format
+    const normalizedConstituency = normalizeZone(constituency) || constituency;
+
     const data = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
-      constituency: formData.get("constituency"),
+      firstName,
+      lastName,
+      constituency: normalizedConstituency,
     };
 
     setLoading(true);
@@ -66,6 +230,19 @@ export default function OfficerUpdate() {
       alert("Ledger Synchronized Successfully");
       setVoter(null);
       setSearchId("");
+      setFirstName("");
+      setLastName("");
+      setConstituency("");
+      setSearchTouched(false);
+      setTouched({
+        firstName: false,
+        lastName: false,
+        constituency: false,
+      });
+      setSearchError("");
+      setFirstNameError("");
+      setLastNameError("");
+      setConstituencyError("");
     } else {
       alert(result.error);
     }
@@ -265,10 +442,38 @@ export default function OfficerUpdate() {
                 <input
                   type="text"
                   value={searchId}
-                  onChange={(e) => setSearchId(e.target.value.toUpperCase())}
+                  onChange={handleSearchChange}
+                  onBlur={handleSearchBlur}
+                  maxLength={12}
                   placeholder="Enter EPIC / Voter ID"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase"
+                  className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase ${
+                    searchError
+                      ? "border-red-500 focus:border-red-500"
+                      : searchTouched && !searchError
+                      ? "border-green-500 focus:border-green-500"
+                      : "border-gray-300 focus:border-[#000080]"
+                  }`}
                 />
+                {searchError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {searchError}
+                  </p>
+                )}
               </div>
               <button
                 disabled={loading || !isGoodConnection}
@@ -365,7 +570,7 @@ export default function OfficerUpdate() {
               </div>
             </div>
 
-            <form action={handleCommit} className="p-6 space-y-6">
+            <form onSubmit={handleCommit} className="p-6 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -375,9 +580,38 @@ export default function OfficerUpdate() {
                   <input
                     name="firstName"
                     type="text"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
-                    defaultValue={voter?.firstName || ""}
+                    value={firstName}
+                    onChange={handleFirstNameChange}
+                    onBlur={handleFirstNameBlur}
+                    maxLength={50}
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                      firstNameError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.firstName && !firstNameError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
                   />
+                  {firstNameError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {firstNameError}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -388,9 +622,38 @@ export default function OfficerUpdate() {
                   <input
                     name="lastName"
                     type="text"
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
-                    defaultValue={voter?.lastName || ""}
+                    value={lastName}
+                    onChange={handleLastNameChange}
+                    onBlur={handleLastNameBlur}
+                    maxLength={50}
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                      lastNameError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.lastName && !lastNameError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
                   />
+                  {lastNameError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {lastNameError}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -401,22 +664,44 @@ export default function OfficerUpdate() {
                 </label>
                 <select
                   name="constituency"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 appearance-none bg-white cursor-pointer"
-                  defaultValue={
-                    voter?.relocationRequests?.[0]?.toZone ||
-                    voter?.constituency
-                  }
+                  value={constituency}
+                  onChange={handleConstituencyChange}
+                  onBlur={handleConstituencyBlur}
+                  className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 appearance-none bg-white cursor-pointer ${
+                    constituencyError
+                      ? "border-red-500 focus:border-red-500"
+                      : touched.constituency && !constituencyError
+                      ? "border-green-500 focus:border-green-500"
+                      : "border-gray-300 focus:border-[#000080]"
+                  }`}
                 >
-                  <option value="Zone A - North Delhi">
-                    Zone A - North Delhi
-                  </option>
-                  <option value="Zone B - South Delhi">
-                    Zone B - South Delhi
-                  </option>
-                  <option value="Zone C - East Delhi">
-                    Zone C - East Delhi
-                  </option>
+                  <option value="">Select Constituency</option>
+                  {ZONES.map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
                 </select>
+                {constituencyError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {constituencyError}
+                  </p>
+                )}
 
                 {voter?.relocationRequests?.[0] && (
                   <div className="mt-4 p-3 bg-amber-50 border-l-4 border-amber-500 rounded">
