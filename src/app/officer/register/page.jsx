@@ -666,7 +666,7 @@ export default function OfficerRegister() {
                 value={epic}
                 onChange={handleEpicChange}
                 onBlur={handleEpicBlur}
-                maxLength={10}
+                maxLength={12}
                 className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase ${
                   epicError
                     ? "border-red-500 focus:border-red-500"

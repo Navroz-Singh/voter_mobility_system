@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import bcrypt from "bcrypt";
+import { getOrCreateVoterKey } from "@/lib/encryption";
 
 /**
  * Handles User Login (Voter, Officer, Admin)
@@ -104,6 +105,17 @@ export async function registerVoterAction(formData) {
         status: "ACTIVE",
       },
     });
+
+    // Create encryption key for the newly claimed user
+    // This ensures data status checks work correctly
+    try {
+      await getOrCreateVoterKey(epic);
+      console.log(`🔐 Encryption key created for newly claimed user: ${epic}`);
+    } catch (keyError) {
+      console.error("Failed to create encryption key during claim:", keyError);
+      // Don't fail the entire claim process if key creation fails
+      // The key will be created lazily on first data encryption
+    }
 
     // Auto-Login the user immediately
     const cookieStore = await cookies();
