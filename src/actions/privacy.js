@@ -38,44 +38,45 @@ export async function shredVoterDataAction(voterId) {
       return { success: false, error: "Voter not found" };
     }
 
-    // Perform shredding in transaction
+    // 1. Encrypt the shred payload BEFORE starting transaction (avoid nested DB calls)
+    const prevHash = user.auditLogs[0]?.curr_hash || "0";
+
+    const shredPayload = {
+      action: "SHRED_REQUEST",
+      voterId: normalizedVoterId,
+      timestamp: new Date().toISOString()
+    };
+    const { encrypted, iv } = await encryptPayload(normalizedVoterId, shredPayload);
+
+    const currHash = crypto
+      .createHash("sha256")
+      .update(prevHash + encrypted + iv + "ADMIN_SHRED_SIG")
+      .digest("hex");
+
+    // 2. Perform shredding in transaction (only DB writes)
     await prisma.$transaction(async (tx) => {
-      // 1. Delete the encryption key (this makes data unreadable)
-      await deleteVoterKey(normalizedVoterId);
-
-      // 2. Update user status to DELETED
-      await tx.user.update({
-        where: { id: user.id },
-        data: { status: "DELETED" },
-      });
-
-      // 3. Log the shredding event to ledger (for audit trail)
-      const prevHash = user.auditLogs[0]?.curr_hash || "0";
-
-      const shredPayload = { 
-        action: "SHRED_REQUEST", 
-        voterId: normalizedVoterId,
-        timestamp: new Date().toISOString() 
-      };
-      const { encrypted, iv } = await encryptPayload(normalizedVoterId, shredPayload);
-
-      const currHash = crypto
-        .createHash("sha256")
-        .update(prevHash + encrypted + iv + "ADMIN_SHRED_SIG")
-        .digest("hex");
-
+      // Log the shredding event to ledger
       await tx.auditLog.create({
         data: {
           userId: user.id,
           eventType: "SHRED_REQUEST",
-          encrypted_payload: encrypted, // Placeholder, actual data is now unreadable
+          encrypted_payload: encrypted,
           iv: iv,
           signature: "ADMIN_SHRED_SIG",
           prev_hash: prevHash,
           curr_hash: currHash,
         },
       });
+
+      // Update user status to DELETED
+      await tx.user.update({
+        where: { id: user.id },
+        data: { status: "DELETED" },
+      });
     });
+
+    // 3. Delete the encryption key AFTER transaction (this makes data unreadable)
+    await deleteVoterKey(normalizedVoterId);
 
     revalidatePath("/admin/privacy");
     return { success: true, message: "Voter data successfully shredded" };
@@ -97,13 +98,60 @@ export async function checkVoterDataStatusAction(voterId) {
     }
 
     const normalizedVoterId = voterId.toUpperCase();
+
+    // First check if encryption key exists
     const canDecrypt = await canDecryptVoterData(normalizedVoterId);
 
-    return { 
-      canDecrypt, 
-      message: canDecrypt 
-        ? "Data is readable" 
-        : "Data has been shredded (key deleted)" 
+    if (canDecrypt) {
+      return {
+        canDecrypt: true,
+        message: "Data is readable"
+      };
+    }
+
+    // If no key exists, check if this is a newly claimed user
+    // (user exists with a real password but no encrypted data yet)
+    const user = await prisma.user.findUnique({
+      where: { epic_number: normalizedVoterId },
+      select: {
+        password_hash: true,
+        status: true,
+        auditLogs: {
+          select: { id: true },
+          take: 1
+        }
+      }
+    });
+
+    if (user) {
+      // If user exists and has a real password (not placeholder)
+      const hasRealPassword = user.password_hash &&
+                             user.password_hash !== "PENDING_CLAIM" &&
+                             user.password_hash !== "OFFLINE_PROVISIONED_PENDING_CLAIM" &&
+                             user.password_hash !== "OFFLINE_ENROLLMENT_PENDING_CLAIM";
+
+      // If user has audit logs but no key, data was shredded
+      if (hasRealPassword) {
+        return {
+          canDecrypt: false,
+          message: "Data has been shredded (key deleted)"
+        };
+      }
+
+
+      // If user has placeholder password, they're not claimed yet
+      if (!hasRealPassword) {
+        return {
+          canDecrypt: false,
+          error: "Account not claimed yet"
+        };
+      }
+    }
+
+    // User doesn't exist or other edge case
+    return {
+      canDecrypt: false,
+      error: "Voter not found"
     };
   } catch (error) {
     console.error("Status check error:", error);

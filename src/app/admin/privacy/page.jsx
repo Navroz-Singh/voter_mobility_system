@@ -357,27 +357,47 @@ export default function AdminPrivacy() {
                 <div
                   className={`p-3 rounded border-l-4 ${
                     dataStatus.canDecrypt
-                      ? "border-green-500 bg-green-50"
+                      ? dataStatus.message?.includes("Newly claimed")
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-green-500 bg-green-50"
                       : "border-gray-500 bg-gray-50"
                   }`}
                 >
                   <div className="flex items-start gap-2">
                     {dataStatus.canDecrypt ? (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="text-green-600 flex-shrink-0 mt-0.5"
-                      >
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
-                        <polyline points="22 4 12 14.01 9 11.01" />
-                      </svg>
+                      dataStatus.message?.includes("Newly claimed") ? (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-blue-600 flex-shrink-0 mt-0.5"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M9 12l2 2 4-4" />
+                        </svg>
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-green-600 flex-shrink-0 mt-0.5"
+                        >
+                          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                          <polyline points="22 4 12 14.01 9 11.01" />
+                        </svg>
+                      )
                     ) : (
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
@@ -400,17 +420,23 @@ export default function AdminPrivacy() {
                       <p
                         className={`text-sm font-semibold ${
                           dataStatus.canDecrypt
-                            ? "text-green-800"
+                            ? dataStatus.message?.includes("Newly claimed")
+                              ? "text-blue-800"
+                              : "text-green-800"
                             : "text-gray-800"
                         }`}
                       >
                         {dataStatus.canDecrypt
-                          ? "✓ Data is readable"
-                          : "✗ Data is shredded (unreadable)"}
+                          ? dataStatus.message?.includes("Account claimed")
+                            ? "✓ Account claimed - ready for data operations"
+                            : "✓ Data is readable"
+                          : dataStatus.error
+                            ? `⚠ ${dataStatus.error}`
+                            : "✗ Data is shredded (unreadable)"}
                       </p>
-                      {dataStatus.error && (
-                        <p className="text-xs text-red-600 mt-1">
-                          {dataStatus.error}
+                      {dataStatus.message && !dataStatus.message.includes("Newly claimed") && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          {dataStatus.message}
                         </p>
                       )}
                     </div>
