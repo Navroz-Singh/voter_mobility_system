@@ -1,6 +1,8 @@
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { requestRelocationAction } from "@/actions/relocation.js";
+import {ZONES, normalizedZones} from "@/lib/zones";
+import Link from "next/link";
 
 export default async function VoterRelocate() {
   const cookieStore = await cookies();
@@ -8,7 +10,7 @@ export default async function VoterRelocate() {
 
   const user = await prisma.user.findUnique({
     where: { id: sessionId },
-    include: { relocationRequests: { where: { status: "PENDING" }, take: 1 } },
+    include: { relocationRequests: { where: { status: { not: "APPROVED" } }, take: 1 } },
   });
 
   const isProfileComplete = !!(user?.firstName && user?.aadhaar_uid);
@@ -20,9 +22,9 @@ export default async function VoterRelocate() {
       <div className="bg-gray-100 border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-2">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            <a href="/" className="hover:text-[#000080]">
+            <Link href="/" className="hover:text-[#000080]">
               Home
-            </a>
+            </Link>
             <span>/</span>
             <a href="/voter" className="hover:text-[#000080]">
               Voter Portal
@@ -279,12 +281,11 @@ export default async function VoterRelocate() {
                   className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 appearance-none bg-white cursor-pointer"
                 >
                   <option value="">Select New Constituency...</option>
-                  <option value="Zone A - North Delhi">
-                    Zone A - North Delhi
-                  </option>
-                  <option value="Zone C - East Delhi">
-                    Zone C - East Delhi
-                  </option>
+                  {ZONES.map((zone) => (
+                    <option key={zone} value={zone}>
+                      {zone}
+                    </option>
+                  ))}
                 </select>
               </div>
 

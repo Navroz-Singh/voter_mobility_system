@@ -3,8 +3,19 @@ import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { loginAction } from "@/actions/auth";
+import {
+  validateGovID,
+  validatePassword,
+  validateLoginCredentials,
+  castToGovID,
+} from "@/lib/validation";
 
 export default function GovernmentLogin() {
+  const [govId, setGovId] = useState("");
+  const [password, setPassword] = useState("");
+  const [govIdError, setGovIdError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [touched, setTouched] = useState({ govId: false, password: false });
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const pathname = usePathname();
@@ -14,16 +25,76 @@ export default function GovernmentLogin() {
   const roleTitle = isAdmin ? "System Admin" : "Polling Officer";
   const roleType = isAdmin ? "ADMIN" : "OFFICER";
 
-  async function handleLogin(formData) {
+  // Helper function to compute Gov ID error
+  const getGovIdError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Government ID is required";
+    const validation = validateGovID(value);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  // Helper function to compute password error
+  const getPasswordError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Password is required";
+    const validation = validatePassword(value, false);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const handleGovIdChange = (e) => {
+    const value = e.target.value;
+    const casted = castToGovID(value);
+    setGovId(casted);
+    if (touched.govId) {
+      setGovIdError(getGovIdError(casted, true));
+    }
+  };
+
+  const handleGovIdBlur = () => {
+    setTouched({ ...touched, govId: true });
+    setGovIdError(getGovIdError(govId, true));
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    if (touched.password) {
+      setPasswordError(getPasswordError(value, true));
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    setTouched({ ...touched, password: true });
+    setPasswordError(getPasswordError(password, true));
+  };
+
+  async function handleLogin(e) {
+    e.preventDefault();
     setError(null);
+
+    // Mark all fields as touched and validate
+    const newTouched = { govId: true, password: true };
+    setTouched(newTouched);
+
+    // Compute errors
+    const govIdErr = getGovIdError(govId, true);
+    const passwordErr = getPasswordError(password, true);
+    setGovIdError(govIdErr);
+    setPasswordError(passwordErr);
+
+    // If validation fails, don't submit
+    if (govIdErr || passwordErr) {
+      return;
+    }
+
     setIsLoading(true);
 
-    // Append the specific role so the backend knows which table/ID to check
+    // Create form data
+    const formData = new FormData();
     formData.append("role", roleType);
-
-    // Use the Service ID as the identifier for the loginAction
-    const serviceId = formData.get("gov_id");
-    formData.append("identifier", serviceId);
+    formData.append("gov_id", govId);
+    formData.append("identifier", govId);
+    formData.append("password", password);
 
     const result = await loginAction(formData);
 
@@ -142,7 +213,7 @@ export default function GovernmentLogin() {
                 </div>
               </div>
 
-              {/* ERROR DISPLAY */}
+              {/* SERVER ERROR DISPLAY */}
               {error && (
                 <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
                   <div className="flex items-start gap-3">
@@ -172,7 +243,7 @@ export default function GovernmentLogin() {
                 </div>
               )}
 
-              <form action={handleLogin} className="space-y-6">
+              <form onSubmit={handleLogin} className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Service ID / Government ID
@@ -181,13 +252,63 @@ export default function GovernmentLogin() {
                   <input
                     name="gov_id"
                     type="text"
+                    value={govId}
+                    onChange={handleGovIdChange}
+                    onBlur={handleGovIdBlur}
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
-                    placeholder="Enter your Service ID"
+                    maxLength={20}
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 uppercase ${
+                      govIdError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.govId && !govIdError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
+                    placeholder="GOV-XXXX-XXXX"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Format: GOV-XXXX-XXXX
-                  </p>
+                  {govIdError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {govIdError}
+                    </p>
+                  )}
+                  {!govIdError && touched.govId && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Valid Government ID format
+                    </p>
+                  )}
+                  {!touched.govId && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: Alphanumeric with hyphens (e.g., GOV-XXXX-XXXX)
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -198,13 +319,66 @@ export default function GovernmentLogin() {
                   <input
                     name="password"
                     type="password"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    onBlur={handlePasswordBlur}
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                      passwordError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.password && !passwordError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
                     placeholder="Enter your password"
                   />
+                  {passwordError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {passwordError}
+                    </p>
+                  )}
+                  {!passwordError && touched.password && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Password is valid
+                    </p>
+                  )}
+                  {!touched.password && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Enter your secure password (min. 8 characters)
+                    </p>
+                  )}
                 </div>
 
                 <button
+                  type="submit"
                   disabled={isLoading}
                   className={`w-full py-3 px-4 rounded font-semibold text-white transition-all ${
                     isLoading

@@ -56,7 +56,7 @@ export async function acceptRemoteVersionAction(conflictId) {
 }
 
 /**
- * Keep Local (Force Retry): We take the original payload, 
+ * Keep Local (Force Retry): We take the original payload,
  * update its expected version to match the DB, and re-send to Main Queue.
  */
 export async function keepLocalVersionAction(conflictId, eventData) {
@@ -67,7 +67,7 @@ export async function keepLocalVersionAction(conflictId, eventData) {
       select: { version: true }
     });
 
-    // 2. Patch the event with the *current* DB version 
+    // 2. Patch the event with the *current* DB version
     // This allows the optimistic lock to pass when the worker processes it again
     const patchedEvent = {
       ...eventData,
@@ -93,5 +93,96 @@ export async function keepLocalVersionAction(conflictId, eventData) {
   } catch (error) {
     console.error("Error resolving conflict:", error);
     return { success: false, error: "Failed to re-queue message" };
+  }
+}
+
+/**
+ * Retry a single processing error conflict
+ */
+export async function retryProcessingErrorAction(conflictId, eventData) {
+  try {
+    // Create a fresh event packet for retry
+    const retryEvent = {
+      ...eventData,
+      retry_count: (eventData.retry_count || 0) + 1,
+      retry_metadata: {
+        retried_at: new Date().toISOString(),
+        previous_conflict_id: conflictId,
+        retry_reason: "manual_retry"
+      }
+    };
+
+    // Send back to MAIN Queue
+    await sendToRelocationQueue(retryEvent);
+
+    // Mark conflict as resolved
+    await prisma.conflictLog.update({
+      where: { id: conflictId },
+      data: { status: "RESOLVED_RETRIED" }
+    });
+
+    revalidatePath("/admin/conflicts");
+    return { success: true, message: "Processing error retried successfully" };
+  } catch (error) {
+    console.error("Error retrying processing error:", error);
+    return { success: false, error: "Failed to retry processing error" };
+  }
+}
+
+/**
+ * Retry all processing error conflicts
+ */
+export async function retryAllProcessingErrorsAction() {
+  try {
+    // Get all processing error conflicts
+    const processingErrors = await prisma.conflictLog.findMany({
+      where: {
+        status: "PENDING",
+        conflict_reason: "PROCESSING_ERROR"
+      },
+      orderBy: { createdAt: "desc" }
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    // Retry each one
+    for (const conflict of processingErrors) {
+      try {
+        const retryEvent = {
+          ...conflict.original_payload,
+          retry_count: (conflict.original_payload.retry_count || 0) + 1,
+          retry_metadata: {
+            retried_at: new Date().toISOString(),
+            previous_conflict_id: conflict.id,
+            retry_reason: "bulk_retry"
+          }
+        };
+
+        await sendToRelocationQueue(retryEvent);
+
+        // Mark as resolved
+        await prisma.conflictLog.update({
+          where: { id: conflict.id },
+          data: { status: "RESOLVED_RETRIED" }
+        });
+
+        successCount++;
+      } catch (error) {
+        console.error(`Failed to retry conflict ${conflict.id}:`, error);
+        failCount++;
+      }
+    }
+
+    revalidatePath("/admin/conflicts");
+    return {
+      success: true,
+      message: `Retried ${successCount} conflicts, ${failCount} failed`,
+      successCount,
+      failCount
+    };
+  } catch (error) {
+    console.error("Error in bulk retry:", error);
+    return { success: false, error: "Failed to retry all processing errors" };
   }
 }

@@ -1,0 +1,15 @@
+services:
+  - type: worker
+    name: vlink-worker
+    env: node
+    region: singapore
+    plan: free   # ✅ IMPORTANT
+    buildCommand: npm install
+    startCommand: node src/workers/ledgerWorker.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: RABBITMQ_URL
+        sync: false

@@ -12,6 +12,15 @@ import {
 
 import { useNetworkStatus } from "@/hooks/useNetworkStatus";
 import { commitVoterUpdate, submitEventBatch } from "@/actions/officer";
+import {
+  validateEPIC,
+  validateAadhaar,
+  validateName,
+  castToEPIC,
+  castToAadhaar,
+  castToName,
+} from "@/lib/validation";
+import { ZONES, normalizeZone } from "@/lib/zones";
 
 export default function OfficerRegister() {
   const pathname = usePathname();
@@ -19,6 +28,130 @@ export default function OfficerRegister() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("Ready to Register")
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Form state
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [epic, setEpic] = useState("");
+  const [aadhaar, setAadhaar] = useState("");
+  const [constituency, setConstituency] = useState("");
+
+  // Error state
+  const [firstNameError, setFirstNameError] = useState("");
+  const [lastNameError, setLastNameError] = useState("");
+  const [epicError, setEpicError] = useState("");
+  const [aadhaarError, setAadhaarError] = useState("");
+  const [constituencyError, setConstituencyError] = useState("");
+
+  // Touched state
+  const [touched, setTouched] = useState({
+    firstName: false,
+    lastName: false,
+    epic: false,
+    aadhaar: false,
+    constituency: false,
+  });
+
+  // Helper functions to compute errors
+  const getFirstNameError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "First name is required";
+    const validation = validateName(value, "First name");
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getLastNameError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Last name is required";
+    const validation = validateName(value, "Last name");
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getEpicError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "EPIC number is required";
+    const validation = validateEPIC(value);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getAadhaarError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Aadhaar number is required";
+    const validation = validateAadhaar(value);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const getConstituencyError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "Constituency is required";
+    return "";
+  };
+
+  // Change handlers
+  const handleFirstNameChange = (e) => {
+    const value = castToName(e.target.value);
+    setFirstName(value);
+    if (touched.firstName) {
+      setFirstNameError(getFirstNameError(value, true));
+    }
+  };
+
+  const handleFirstNameBlur = () => {
+    setTouched({ ...touched, firstName: true });
+    setFirstNameError(getFirstNameError(firstName, true));
+  };
+
+  const handleLastNameChange = (e) => {
+    const value = castToName(e.target.value);
+    setLastName(value);
+    if (touched.lastName) {
+      setLastNameError(getLastNameError(value, true));
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    setTouched({ ...touched, lastName: true });
+    setLastNameError(getLastNameError(lastName, true));
+  };
+
+  const handleEpicChange = (e) => {
+    const value = castToEPIC(e.target.value);
+    setEpic(value);
+    if (touched.epic) {
+      setEpicError(getEpicError(value, true));
+    }
+  };
+
+  const handleEpicBlur = () => {
+    setTouched({ ...touched, epic: true });
+    setEpicError(getEpicError(epic, true));
+  };
+
+  const handleAadhaarChange = (e) => {
+    const value = castToAadhaar(e.target.value);
+    setAadhaar(value);
+    if (touched.aadhaar) {
+      setAadhaarError(getAadhaarError(value, true));
+    }
+  };
+
+  const handleAadhaarBlur = () => {
+    setTouched({ ...touched, aadhaar: true });
+    setAadhaarError(getAadhaarError(aadhaar, true));
+  };
+
+  const handleConstituencyChange = (e) => {
+    const value = e.target.value;
+    setConstituency(value);
+    if (touched.constituency) {
+      setConstituencyError(getConstituencyError(value, true));
+    }
+  };
+
+  const handleConstituencyBlur = () => {
+    setTouched({ ...touched, constituency: true });
+    setConstituencyError(getConstituencyError(constituency, true));
+  };
 
   // --- SYNC & LOGOUT LOGIC ---
   const handleSyncAndLogout = async () => {
@@ -79,15 +212,46 @@ export default function OfficerRegister() {
 
   const handleEnroll = async (e) => {
     e.preventDefault();
+    
+    // Mark all fields as touched and validate
+    const newTouched = {
+      firstName: true,
+      lastName: true,
+      epic: true,
+      aadhaar: true,
+      constituency: true,
+    };
+    setTouched(newTouched);
+
+    // Compute all errors
+    const firstNameErr = getFirstNameError(firstName, true);
+    const lastNameErr = getLastNameError(lastName, true);
+    const epicErr = getEpicError(epic, true);
+    const aadhaarErr = getAadhaarError(aadhaar, true);
+    const constituencyErr = getConstituencyError(constituency, true);
+
+    setFirstNameError(firstNameErr);
+    setLastNameError(lastNameErr);
+    setEpicError(epicErr);
+    setAadhaarError(aadhaarErr);
+    setConstituencyError(constituencyErr);
+
+    // If validation fails, don't submit
+    if (firstNameErr || lastNameErr || epicErr || aadhaarErr || constituencyErr) {
+      return;
+    }
+
     setLoading(true);
 
-    const formData = new FormData(e.target);
+    // Normalize constituency to standard format
+    const normalizedConstituency = normalizeZone(constituency) || constituency;
+
     const voterData = {
-      firstName: formData.get("firstName"),
-      lastName: formData.get("lastName"),
-      epic: formData.get("epic"),
-      aadhaar: formData.get("aadhaar"),
-      constituency: formData.get("constituency"),
+      firstName,
+      lastName,
+      epic,
+      aadhaar,
+      constituency: normalizedConstituency,
     };
 
     try {
@@ -103,7 +267,24 @@ export default function OfficerRegister() {
         if (result.success) {
           const shortId = result.id ? result.id.slice(-8) : "BUFFERED";
           setStatus(`SUCCESS: Local Block Created [${shortId}]`);
-          e.target.reset();
+          // Reset form
+          setFirstName("");
+          setLastName("");
+          setEpic("");
+          setAadhaar("");
+          setConstituency("");
+          setTouched({
+            firstName: false,
+            lastName: false,
+            epic: false,
+            aadhaar: false,
+            constituency: false,
+          });
+          setFirstNameError("");
+          setLastNameError("");
+          setEpicError("");
+          setAadhaarError("");
+          setConstituencyError("");
         } else {
           setStatus(`ERROR: ${result.error}`);
         }
@@ -112,7 +293,24 @@ export default function OfficerRegister() {
         const result = await commitVoterUpdate(null, voterData);
         if (result.success) {
           setStatus("SUCCESS: Event Packet Anchored to Queue");
-          e.target.reset();
+          // Reset form
+          setFirstName("");
+          setLastName("");
+          setEpic("");
+          setAadhaar("");
+          setConstituency("");
+          setTouched({
+            firstName: false,
+            lastName: false,
+            epic: false,
+            aadhaar: false,
+            constituency: false,
+          });
+          setFirstNameError("");
+          setLastNameError("");
+          setEpicError("");
+          setAadhaarError("");
+          setConstituencyError("");
         } else {
           setStatus(`ERROR: ${result.error}`);
         }
@@ -376,9 +574,39 @@ export default function OfficerRegister() {
                   required
                   name="firstName"
                   type="text"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                  value={firstName}
+                  onChange={handleFirstNameChange}
+                  onBlur={handleFirstNameBlur}
+                  maxLength={50}
+                  className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                    firstNameError
+                      ? "border-red-500 focus:border-red-500"
+                      : touched.firstName && !firstNameError
+                      ? "border-green-500 focus:border-green-500"
+                      : "border-gray-300 focus:border-[#000080]"
+                  }`}
                   placeholder="Enter first name"
                 />
+                {firstNameError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {firstNameError}
+                  </p>
+                )}
               </div>
 
               <div>
@@ -390,9 +618,39 @@ export default function OfficerRegister() {
                   required
                   name="lastName"
                   type="text"
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                  value={lastName}
+                  onChange={handleLastNameChange}
+                  onBlur={handleLastNameBlur}
+                  maxLength={50}
+                  className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                    lastNameError
+                      ? "border-red-500 focus:border-red-500"
+                      : touched.lastName && !lastNameError
+                      ? "border-green-500 focus:border-green-500"
+                      : "border-gray-300 focus:border-[#000080]"
+                  }`}
                   placeholder="Enter last name"
                 />
+                {lastNameError && (
+                  <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="12"
+                      height="12"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
+                    {lastNameError}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -405,9 +663,57 @@ export default function OfficerRegister() {
                 required
                 name="epic"
                 type="text"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase"
-                placeholder="Enter EPIC number (e.g., ABC1234567)"
+                value={epic}
+                onChange={handleEpicChange}
+                onBlur={handleEpicBlur}
+                maxLength={10}
+                className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase ${
+                  epicError
+                    ? "border-red-500 focus:border-red-500"
+                    : touched.epic && !epicError
+                    ? "border-green-500 focus:border-green-500"
+                    : "border-gray-300 focus:border-[#000080]"
+                }`}
+                placeholder="ABC1234567"
               />
+              {epicError && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {epicError}
+                </p>
+              )}
+              {!epicError && touched.epic && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Valid EPIC format
+                </p>
+              )}
             </div>
 
             <div>
@@ -419,9 +725,57 @@ export default function OfficerRegister() {
                 required
                 name="aadhaar"
                 type="text"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono"
-                placeholder="0000 0000 0000"
+                value={aadhaar}
+                onChange={handleAadhaarChange}
+                onBlur={handleAadhaarBlur}
+                maxLength={12}
+                className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono ${
+                  aadhaarError
+                    ? "border-red-500 focus:border-red-500"
+                    : touched.aadhaar && !aadhaarError
+                    ? "border-green-500 focus:border-green-500"
+                    : "border-gray-300 focus:border-[#000080]"
+                }`}
+                placeholder="1234 5678 9012"
               />
+              {aadhaarError && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {aadhaarError}
+                </p>
+              )}
+              {!aadhaarError && touched.aadhaar && (
+                <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  Valid Aadhaar format
+                </p>
+              )}
             </div>
 
             <div>
@@ -432,16 +786,44 @@ export default function OfficerRegister() {
               <select
                 required
                 name="constituency"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 appearance-none bg-white cursor-pointer"
+                value={constituency}
+                onChange={handleConstituencyChange}
+                onBlur={handleConstituencyBlur}
+                className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 appearance-none bg-white cursor-pointer ${
+                  constituencyError
+                    ? "border-red-500 focus:border-red-500"
+                    : touched.constituency && !constituencyError
+                    ? "border-green-500 focus:border-green-500"
+                    : "border-gray-300 focus:border-[#000080]"
+                }`}
               >
                 <option value="">Select Constituency</option>
-                <option value="ZONE A - NORTH DELHI">
-                  ZONE A - NORTH DELHI
-                </option>
-                <option value="ZONE B - SOUTH DELHI">
-                  ZONE B - SOUTH DELHI
-                </option>
+                {ZONES.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
               </select>
+              {constituencyError && (
+                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" y1="8" x2="12" y2="12" />
+                    <line x1="12" y1="16" x2="12.01" y2="16" />
+                  </svg>
+                  {constituencyError}
+                </p>
+              )}
             </div>
 
             <div className="pt-4">

@@ -15,6 +15,28 @@ const DLQ_NAME = "relocation_ledger_queue_dlq";
 
 const DEFAULT_SIG = "SYSTEM_SIGNED"; 
 
+let connection;
+let channel;
+
+
+async function connectRabbitMQ() {
+  while (true) {
+    try {
+      connection = await amqp.connect(RABBITMQ_URL);
+      connection.on("close", () => {
+        console.error("❌ RabbitMQ connection closed. Reconnecting...");
+        process.exit(1);
+      });
+      connection.on("error", () => {});
+      return connection;
+    } catch (err) {
+      console.error("RabbitMQ connect failed. Retrying in 5s...");
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+}
+
+
 async function startWorker() {
   if (!RABBITMQ_URL) {
     console.error("❌ Error: RABBITMQ_URL is missing from .env");
@@ -22,8 +44,8 @@ async function startWorker() {
   }
 
   try {
-    const connection = await amqp.connect(RABBITMQ_URL);
-    const channel = await connection.createChannel();
+    const connection = await connectRabbitMQ();
+    channel = await connection.createChannel();
 
     // Ensure Queue settings match Sender EXACTLY
     await channel.assertQueue(QUEUE_NAME, {
@@ -68,10 +90,27 @@ async function startWorker() {
               },
             });
 
-            // 2. Logic / Version Checks
+            // 2. Logic / Version Checks and Conflict Handling
             if (existingUser && event.expected_version !== undefined) {
               if (existingUser.version !== event.expected_version) {
-                throw new Error("VERSION_MISMATCH");
+                try {
+                  await tx.conflictLog.create({
+                    data: {
+                      epic_number: event.payload?.epic || "UNKNOWN",
+                      original_payload: event,
+                      conflict_reason: "VERSION_MISMATCH",
+                      status: "PENDING",
+                      expected_version: event.expected_version,
+                      actual_version: existingUser.version,
+                    },
+                  });
+
+                  throw new Error("VERSION_MISMATCH_HANDLED");
+
+                } catch (dbError) {
+                  console.error("🔥 DB Write Failed. Sending to DLQ.");
+                  throw new Error("DLQ_REQUIRED");
+                }
               }
             }
 
@@ -124,7 +163,7 @@ async function startWorker() {
                 curr_hash: currHash,
               },
             });
-            // 6.
+            // 6. Relocation Request Approval
             if (event.requestId) {
               await tx.relocationRequest.update({
                 where: { id: event.requestId },
@@ -144,6 +183,16 @@ async function startWorker() {
         channel.ack(msg);
       } catch (processError) {
         console.error(`❌ Failed: ${processError.message}`);
+
+        if (processError.message === "VERSION_MISMATCH_HANDLED") {
+          channel.ack(msg);
+          return;
+        }
+
+        if (processError.message === "DLQ_REQUIRED") {
+          channel.nack(msg, false, false);
+          return;
+        }
 
         // Error Handling / DLQ Logic
         try {
@@ -165,7 +214,16 @@ async function startWorker() {
     });
   } catch (err) {
     console.error("Worker Error:", err);
+    process.exit(1);
   }
 }
 
 startWorker();
+
+process.on("SIGTERM", async () => {
+  console.log("🛑 Shutting down worker...");
+  await prisma.$disconnect();
+  if (channel) await channel.close();
+  if (connection) await connection.close();
+  process.exit(0);
+});

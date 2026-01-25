@@ -6,7 +6,7 @@ export async function GET() {
   try {
     // Fetch all ledger entries
     const entries = await prisma.auditLog.findMany({
-      orderBy: { timestamp: "asc" },
+      orderBy: { timestamp: "desc" },
       select: {
         id: true,
         eventType: true,

@@ -1,9 +1,22 @@
 "use client";
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState, startTransition } from "react";
 import { loginAction, registerVoterAction } from "@/actions/auth";
+import {
+  validateEPIC,
+  validatePassword,
+  validateLoginCredentials,
+  validateClaimCredentials,
+  castToEPIC,
+} from "@/lib/validation";
 
 export default function VoterAuth() {
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [identifierError, setIdentifierError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [touched, setTouched] = useState({ identifier: false, password: false });
+
   const [error, formAction, isPending] = useActionState(
     async (prevState, formData) => {
       const intent = formData.get("intent");
@@ -18,6 +31,80 @@ export default function VoterAuth() {
     },
     null
   );
+
+  // Helper function to compute EPIC error
+  const getIdentifierError = (value, isTouched) => {
+    if (!isTouched) return "";
+    if (!value) return "EPIC number is required";
+    const validation = validateEPIC(value);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  // Helper function to compute password error
+  const getPasswordError = (value, isTouched, isClaim = false) => {
+    if (!isTouched) return "";
+    if (!value) return "Password is required";
+    const validation = validatePassword(value, isClaim);
+    return validation.isValid ? "" : validation.error;
+  };
+
+  const handleIdentifierChange = (e) => {
+    const value = e.target.value;
+    const casted = castToEPIC(value);
+    setIdentifier(casted);
+    if (touched.identifier) {
+      setIdentifierError(getIdentifierError(casted, true));
+    }
+  };
+
+  const handleIdentifierBlur = () => {
+    setTouched({ ...touched, identifier: true });
+    setIdentifierError(getIdentifierError(identifier, true));
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    if (touched.password) {
+      setPasswordError(getPasswordError(value, true, false));
+    }
+  };
+
+  const handlePasswordBlur = () => {
+    setTouched({ ...touched, password: true });
+    setPasswordError(getPasswordError(password, true, false));
+  };
+
+  const handleSubmit = async (e, intent) => {
+    e.preventDefault();
+    
+    // Mark all fields as touched and validate
+    const newTouched = { identifier: true, password: true };
+    setTouched(newTouched);
+
+    // Compute errors based on intent
+    const isClaim = intent === "claim";
+    const identifierErr = getIdentifierError(identifier, true);
+    const passwordErr = getPasswordError(password, true, isClaim);
+    
+    setIdentifierError(identifierErr);
+    setPasswordError(passwordErr);
+
+    // If validation fails, don't submit
+    if (identifierErr || passwordErr) {
+      return;
+    }
+
+    // Create form data and submit
+    const formData = new FormData();
+    formData.append("identifier", identifier);
+    formData.append("password", password);
+    formData.append("intent", intent);
+
+    startTransition(() => {
+      formAction(formData);
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -125,17 +212,17 @@ export default function VoterAuth() {
                   </svg>
                   <div>
                     <p className="text-xs text-gray-700 leading-relaxed">
-                      <strong>New Users:</strong> If you've been registered by a
-                      field officer, use "Claim Account" to set your password.
+                      <strong>New Users:</strong> If you have ve been registered by a
+                      field officer, use Claim Account to set your password.
                       <br />
-                      <strong>Existing Users:</strong> Use "Sign In" to access
+                      <strong>Existing Users:</strong> Use Sign In to access
                       your voter dashboard.
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* ERROR MESSAGE DISPLAY */}
+              {/* SERVER ERROR MESSAGE DISPLAY */}
               {error && (
                 <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
                   <div className="flex items-start gap-3">
@@ -165,7 +252,7 @@ export default function VoterAuth() {
                 </div>
               )}
 
-              <form action={formAction} className="space-y-6">
+              <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     EPIC Number (Voter ID)
@@ -174,13 +261,63 @@ export default function VoterAuth() {
                   <input
                     name="identifier"
                     type="text"
+                    value={identifier}
+                    onChange={handleIdentifierChange}
+                    onBlur={handleIdentifierBlur}
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase"
-                    placeholder="Enter your EPIC number"
+                    maxLength={12}
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 font-mono uppercase ${
+                      identifierError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.identifier && !identifierError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
+                    placeholder="ABC1234567"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Format: ABC1234567
-                  </p>
+                  {identifierError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {identifierError}
+                    </p>
+                  )}
+                  {!identifierError && touched.identifier && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Valid EPIC format
+                    </p>
+                  )}
+                  {!touched.identifier && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Format: 3 letters followed by 7 digits (e.g., ABC1234567)
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -191,20 +328,68 @@ export default function VoterAuth() {
                   <input
                     name="password"
                     type="password"
+                    value={password}
+                    onChange={handlePasswordChange}
+                    onBlur={handlePasswordBlur}
                     required
-                    className="w-full px-4 py-3 border-2 border-gray-300 rounded focus:border-[#000080] focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900"
+                    className={`w-full px-4 py-3 border-2 rounded focus:ring-2 focus:ring-[#000080]/20 outline-none transition-all text-gray-900 ${
+                      passwordError
+                        ? "border-red-500 focus:border-red-500"
+                        : touched.password && !passwordError
+                        ? "border-green-500 focus:border-green-500"
+                        : "border-gray-300 focus:border-[#000080]"
+                    }`}
                     placeholder="Enter your password"
                   />
-                  <p className="text-xs text-gray-500 mt-1">
-                    New users: Enter the password you wish to set
-                  </p>
+                  {passwordError && (
+                    <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      {passwordError}
+                    </p>
+                  )}
+                  {!passwordError && touched.password && (
+                    <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="12"
+                        height="12"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Password is valid
+                    </p>
+                  )}
+                  {!touched.password && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      New users: Enter the password you wish to set (min. 8 characters)
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 pt-4">
                   {/* SIGN IN BUTTON */}
                   <button
-                    name="intent"
-                    value="login"
+                    onClick={(e) => handleSubmit(e, "login")}
                     disabled={isPending}
                     className="py-3 px-4 border-2 border-[#000080] text-[#000080] rounded font-semibold hover:bg-[#000080] hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -239,8 +424,7 @@ export default function VoterAuth() {
 
                   {/* CLAIM ACCOUNT BUTTON */}
                   <button
-                    name="intent"
-                    value="claim"
+                    onClick={(e) => handleSubmit(e, "claim")}
                     disabled={isPending}
                     className="py-3 px-4 bg-[#FF9933] text-white rounded font-semibold hover:bg-[#000080] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -273,7 +457,7 @@ export default function VoterAuth() {
                     )}
                   </button>
                 </div>
-              </form>
+              </div>
 
               {/* Additional Links */}
               <div className="mt-6 pt-6 border-t border-gray-200">
@@ -319,7 +503,7 @@ export default function VoterAuth() {
                   Need Assistance?
                 </p>
                 <p className="text-xs text-yellow-700 leading-relaxed">
-                  If you're unable to access your account or need to retrieve
+                  If you are unable to access your account or need to retrieve
                   your EPIC number, please contact your nearest Election
                   Commission office or call our helpline at 1800-XXX-XXXX.
                 </p>
