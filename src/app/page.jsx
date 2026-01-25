@@ -211,7 +211,7 @@ export default function LandingPage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="bg-gradient-to-r from-[#FF9933] via-white to-[#138808] py-12">
+      <section className="bg-linear-to-r from-[#FF9933] via-white to-[#138808] py-12">
         <div className="max-w-7xl mx-auto px-4">
           <div className="bg-white/95 backdrop-blur-sm rounded-lg shadow-xl p-8 border-l-8 border-[#000080]">
             <h1 className="text-4xl font-bold text-[#000080] mb-4">
@@ -299,7 +299,7 @@ export default function LandingPage() {
                 className="bg-gray-50 border-l-4 border-[#138808] rounded-r-lg shadow-md p-6 hover:shadow-lg transition-shadow"
               >
                 <div className="flex items-start gap-4">
-                  <div className="text-[#000080] flex-shrink-0">{feature.icon}</div>
+                  <div className="text-[#000080] shrink-0">{feature.icon}</div>
                   <div>
                     <h3 className="text-xl font-bold text-[#000080] mb-3">
                       {feature.title}
