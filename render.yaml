@@ -1,42 +1,15 @@
 services:
-  # Main Next.js Application
-  - type: web
-    name: vlink-frontend
-    env: node
-    region: singapore
-    plan: starter
-    buildCommand: npm run build
-    startCommand: npm run start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: DATABASE_URL
-        sync: false  # Set in Render dashboard
-      - key: NEXTAUTH_SECRET
-        generateValue: true
-      - key: NEXTAUTH_URL
-        sync: false  # Will be set to Render URL
-
-  # RabbitMQ Worker Service
   - type: worker
     name: vlink-worker
     env: node
     region: singapore
-    plan: starter
+    plan: free   # ✅ IMPORTANT
     buildCommand: npm install
     startCommand: node src/workers/ledgerWorker.js
     envVars:
       - key: NODE_ENV
-        value: production
+        value: process.env.NODE_ENV
       - key: DATABASE_URL
-        sync: false  # Same DB as frontend
+        sync: false
       - key: RABBITMQ_URL
-        sync: false  # Set in Render dashboard
-
-# Optional: Redis for session storage (if needed)
-# databases:
-#   - name: vlink-redis
-#     databaseName: vlink
-#     user: vlink
-#     region: singapore
-#     plan: starter
+        value: process.env.RABBITMQ_URL

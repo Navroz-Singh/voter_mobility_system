@@ -10,7 +10,7 @@ export default async function VoterRelocate() {
 
   const user = await prisma.user.findUnique({
     where: { id: sessionId },
-    include: { relocationRequests: { where: { status: "PENDING" }, take: 1 } },
+    include: { relocationRequests: { where: { status: { not: "APPROVED" } }, take: 1 } },
   });
 
   const isProfileComplete = !!(user?.firstName && user?.aadhaar_uid);
