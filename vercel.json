@@ -1,0 +1,9 @@
+{
+    "crons": [
+      {
+        "path": "/api/ledger-worker",
+        "schedule": "0 3 * * *"
+      }
+    ]
+  }
+  
