@@ -1,3 +1,6 @@
+export const runtime = "nodejs";
+
+
 import amqp from "amqplib";
 import { PrismaClient } from "@prisma/client";
 import crypto from "crypto";
