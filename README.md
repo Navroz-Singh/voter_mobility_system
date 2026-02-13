@@ -1,7 +1,3 @@
-Here is the updated, highly detailed `README.md` for your GitHub repository. It places the installation instructions first as requested and expands technically on the system's internal mechanics.
-
----
-
 # V-LINK 2.1: Latency-Tolerant Voter Identity & Ledger System
 
 V-LINK 2.1 is a distributed identity management platform designed for hostile network environments. It abandons traditional synchronous CRUD operations in favor of an **Event Sourcing** architecture that prioritizes data integrity and availability over immediate consistency.
