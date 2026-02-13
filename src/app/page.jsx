@@ -176,40 +176,6 @@ export default function LandingPage() {
         </div>
       </header>
 
-      {/* Navigation Bar */}
-      <nav className="bg-[#000080] shadow-lg">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex items-center justify-between h-12">
-            <div className="flex space-x-1">
-              <Link
-                href="/"
-                className="px-4 py-2 text-white hover:bg-white hover:text-[#000080] transition-colors font-medium"
-              >
-                Home
-              </Link>
-              <Link
-                href="/about"
-                className="px-4 py-2 text-white hover:bg-white hover:text-[#000080] transition-colors font-medium"
-              >
-                About
-              </Link>
-              <Link
-                href="/contact"
-                className="px-4 py-2 text-white hover:bg-white hover:text-[#000080] transition-colors font-medium"
-              >
-                Contact
-              </Link>
-              <Link
-                href="/help"
-                className="px-4 py-2 text-white hover:bg-white hover:text-[#000080] transition-colors font-medium"
-              >
-                Help
-              </Link>
-              
-            </div>
-          </div>
-        </div>
-      </nav>
 
       {/* Hero Section */}
       <section className="bg-linear-to-r from-[#FF9933] via-white to-[#138808] py-12">
