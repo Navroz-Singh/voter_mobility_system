@@ -124,14 +124,6 @@ export function validatePassword(password, isClaim = false) {
 
   // For new password (claim), check strength requirements
   if (isClaim) {
-    // Check for at least one uppercase letter
-    if (!/[A-Z]/.test(trimmed)) {
-      return {
-        isValid: false,
-        error: "Password must contain at least one uppercase letter",
-      };
-    }
-
     // Check for at least one lowercase letter
     if (!/[a-z]/.test(trimmed)) {
       return {
@@ -145,14 +137,6 @@ export function validatePassword(password, isClaim = false) {
       return {
         isValid: false,
         error: "Password must contain at least one number",
-      };
-    }
-
-    // Check for at least one special character
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(trimmed)) {
-      return {
-        isValid: false,
-        error: "Password must contain at least one special character",
       };
     }
   }

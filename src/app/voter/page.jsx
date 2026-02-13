@@ -315,7 +315,7 @@ export default function VoterAuth() {
                   )}
                   {!touched.identifier && (
                     <p className="text-xs text-gray-500 mt-1">
-                      Format: 3 letters followed by 7 digits (e.g., ABC1234567)
+                      Format: VLINK followed by 7 digits (e.g., VLINK1234567)
                     </p>
                   )}
                 </div>

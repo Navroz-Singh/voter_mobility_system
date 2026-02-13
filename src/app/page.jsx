@@ -205,6 +205,7 @@ export default function LandingPage() {
               >
                 Help
               </Link>
+              
             </div>
           </div>
         </div>
@@ -226,6 +227,20 @@ export default function LandingPage() {
               system ensures data integrity through cryptographic verification and
               provides offline capabilities for remote area operations.
             </p>
+            
+            {/* Added Demo Guide Button */}
+            <div className="mt-8">
+              <Link 
+                href="/demo" 
+                className="group relative inline-flex items-center justify-center px-8 py-3 text-base font-medium text-white bg-[#000080] rounded-full overflow-hidden transition-all hover:bg-[#FF9933] hover:scale-105 shadow-lg"
+              >
+                <span className="absolute w-0 h-0 transition-all duration-500 ease-out bg-white rounded-full group-hover:w-56 group-hover:h-56 opacity-10"></span>
+                <span className="relative flex items-center gap-2">
+                  🚀 Start Interactive Demo Guide
+                </span>
+              </Link>
+            </div>
+
           </div>
         </div>
       </section>
