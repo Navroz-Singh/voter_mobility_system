@@ -167,7 +167,7 @@ export default function DemoGuidePage() {
       </header>
 
       {/* Hero / Intro Section */}
-      <section className="bg-gradient-to-r from-[#FF9933]/10 via-white to-[#138808]/10 py-12 border-b border-gray-200">
+      <section className="bg-linear-to-r from-[#FF9933]/10 via-white to-[#138808]/10 py-12 border-b border-gray-200">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h1 className="text-3xl font-bold text-[#000080] mb-4">
             Interactive System Walkthrough
@@ -182,7 +182,7 @@ export default function DemoGuidePage() {
       <main className="max-w-6xl mx-auto px-4 py-12 space-y-12">
         {/* STAGE 1: ADMIN SETUP */}
         <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#FF9933] to-[#000080] p-6 text-white flex items-center gap-4">
+          <div className="bg-linear-to-r from-[#FF9933] to-[#000080] p-6 text-white flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
               <Icons.Shield />
             </div>
@@ -233,7 +233,7 @@ export default function DemoGuidePage() {
 
         {/* STAGE 2: OFFICER ENROLLMENT */}
         <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#000080] to-blue-600 p-6 text-white flex items-center gap-4">
+          <div className="bg-linear-to-r from-[#000080] to-blue-600 p-6 text-white flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
               <Icons.UserCog />
             </div>
@@ -279,8 +279,8 @@ export default function DemoGuidePage() {
                     <div className="text-sm font-semibold text-gray-800">Dev</div>
                   </div>
                 </div>
-                <CredentialBox label="EPIC NUMBER (NEW)" value="VLINK0000000" id="epic-new" />
-                <CredentialBox label="AADHAAR UID" value="9999-8888-7777" id="aadhaar-new" />
+                <CredentialBox label="EPIC NUMBER (NEW)" value="VLINK1122334" id="epic-new" />
+                <CredentialBox label="AADHAAR UID" value="123412346789" id="aadhaar-new" />
               </div>
             </div>
           </div>
@@ -288,7 +288,7 @@ export default function DemoGuidePage() {
 
         {/* STAGE 3: VOTER ACTIVATION */}
         <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-[#138808] to-green-600 p-6 text-white flex items-center gap-4">
+          <div className="bg-linear-to-r from-[#138808] to-green-600 p-6 text-white flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
               <Icons.User />
             </div>
@@ -312,7 +312,7 @@ export default function DemoGuidePage() {
                 Activate your <strong>Pending Claim</strong> account.
               </p>
               <div className="space-y-1">
-                <CredentialBox label="YOUR EPIC NUMBER" value="VLINK0000000" id="voter-id" />
+                <CredentialBox label="YOUR EPIC NUMBER" value="VLINK1122334" id="voter-id" />
                 <CredentialBox label="SET NEW PASSWORD" value="password123" id="voter-pass" />
               </div>
               <div className="mt-8">
@@ -339,7 +339,7 @@ export default function DemoGuidePage() {
 
         {/* STAGE 4: RELOCATION REQUEST & APPROVAL */}
         <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
-          <div className="bg-gradient-to-r from-green-600 to-blue-600 p-6 text-white flex items-center gap-4">
+          <div className="bg-linear-to-r from-green-600 to-blue-600 p-6 text-white flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
               <Icons.MapPin />
             </div>
@@ -361,7 +361,7 @@ export default function DemoGuidePage() {
               </h4>
               <div className="bg-green-50 p-4 rounded-lg border border-green-200 mb-4">
                 <ul className="space-y-3 text-sm text-gray-700">
-                  <li className="flex gap-2"><span className="font-bold text-[#138808]">1.</span><span>Log in as Voter (VLINK0000000).</span></li>
+                  <li className="flex gap-2"><span className="font-bold text-[#138808]">1.</span><span>Log in as Voter (VLINK1122334).</span></li>
                   <li className="flex gap-2"><span className="font-bold text-[#138808]">2.</span><span>Go to <strong>Relocate</strong> tab.</span></li>
                   <li className="flex gap-2"><span className="font-bold text-[#138808]">3.</span><span>Select Target Zone: <strong>Zone B - South Delhi</strong> and submit.</span></li>
                 </ul>
@@ -381,7 +381,7 @@ export default function DemoGuidePage() {
                 <ul className="space-y-3 text-sm text-gray-700">
                   <li className="flex gap-2"><span className="font-bold text-[#000080]">1.</span><span>Log in as Officer (OFFICER-402).</span></li>
                   <li className="flex gap-2"><span className="font-bold text-[#000080]">2.</span><span>Go to <strong>Update Records</strong> tab.</span></li>
-                  <li className="flex gap-2"><span className="font-bold text-[#000080]">3.</span><span>Search EPIC: <strong>VLINK0000000</strong>.</span></li>
+                  <li className="flex gap-2"><span className="font-bold text-[#000080]">3.</span><span>Search EPIC: <strong>VLINK1122334</strong>.</span></li>
                   <li className="flex gap-2"><span className="font-bold text-[#000080]">4.</span><span>Review request and click <strong>Commit Update to Queue</strong>.</span></li>
                 </ul>
               </div>
@@ -395,7 +395,7 @@ export default function DemoGuidePage() {
         {/* STAGE 5: ADMIN ACTIONS (AUDIT, CONFLICTS, PRIVACY) */}
         <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
           {/* Card Header - Final Admin Gradient */}
-          <div className="bg-gradient-to-r from-[#000080] to-[#FF9933] p-6 text-white flex items-center gap-4">
+          <div className="bg-linear-to-r from-[#000080] to-[#FF9933] p-6 text-white flex items-center gap-4">
             <div className="p-3 bg-white/20 rounded-full backdrop-blur-sm">
               <Icons.AdminTools />
             </div>
@@ -481,7 +481,7 @@ export default function DemoGuidePage() {
                     <p className="text-sm text-gray-600 mb-4">
                         Permanently delete a voter's data by destroying their unique encryption key, rendering the ledger entries unreadable while preserving the chain.
                     </p>
-                    <CredentialBox label="EPIC TO SHRED" value="VLINK0000000" id="shred-id" />
+                    <CredentialBox label="EPIC TO SHRED" value="VLINK1122334" id="shred-id" />
                  </div>
                  <div>
                     <h5 className="font-bold text-[#000080] mb-3 flex items-center gap-2">
