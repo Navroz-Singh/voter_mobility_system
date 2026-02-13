@@ -69,7 +69,7 @@ export default function OfficerRegister() {
 
   const getEpicError = (value, isTouched) => {
     if (!isTouched) return "";
-    if (!value) return "EPIC number is required";
+    if (!value) return "VLINK number is required";
     const validation = validateEPIC(value);
     return validation.isValid ? "" : validation.error;
   };
@@ -656,7 +656,7 @@ export default function OfficerRegister() {
 
             <div>
               <label className="block text-sm font-semibold text-gray-700 mb-2">
-                EPIC Number (Voter ID)
+                VLINK Number (Voter ID)
                 <span className="text-red-500 ml-1">*</span>
               </label>
               <input
@@ -674,7 +674,7 @@ export default function OfficerRegister() {
                     ? "border-green-500 focus:border-green-500"
                     : "border-gray-300 focus:border-[#000080]"
                 }`}
-                placeholder="ABC1234567"
+                placeholder="VLINK1234567"
               />
               {epicError && (
                 <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
@@ -711,7 +711,7 @@ export default function OfficerRegister() {
                   >
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
-                  Valid EPIC format
+                  Valid VLINK format
                 </p>
               )}
             </div>
