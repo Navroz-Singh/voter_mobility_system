@@ -1,4 +1,4 @@
-# V-LINK 2.1 — Testing Guide
+# V-LINK — Testing Guide
 
 ## 1. Before You Start
 - **Have Docker (or local RabbitMQ), PostgreSQL, and Node.js installed.**

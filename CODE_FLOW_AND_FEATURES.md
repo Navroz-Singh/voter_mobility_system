@@ -1,4 +1,4 @@
-# V-LINK 2.1 — Code Flow & Features
+# V-LINK — Code Flow & Features
 
 ## Table of Contents
 - [Roles & Entry Points](#roles-entry-points)

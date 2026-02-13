@@ -1,4 +1,4 @@
-# V-LINK 2.1 — Architecture Overview
+# V-LINK — Architecture Overview
 
 ## 1. High-Level System Diagram
 

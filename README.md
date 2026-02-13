@@ -1,6 +1,6 @@
-# V-LINK 2.1: Latency-Tolerant Voter Identity & Ledger System
+# V-LINK: Latency-Tolerant Voter Identity & Ledger System
 
-V-LINK 2.1 is a distributed identity management platform designed for hostile network environments. It abandons traditional synchronous CRUD operations in favor of an **Event Sourcing** architecture that prioritizes data integrity and availability over immediate consistency.
+V-LINK is a distributed identity management platform designed for hostile network environments. It abandons traditional synchronous CRUD operations in favor of an **Event Sourcing** architecture that prioritizes data integrity and availability over immediate consistency.
 
 This system solves three specific problems found in field operations:
 
